@@ -85,6 +85,8 @@ that direction is the whole extensibility seam.
 
 ## Honest status
 
+> Picking this up after a break? Start with [`docs/STATE.md`](docs/STATE.md).
+
 **This has never run on live mail.** Not once. Every number below is measured
 against a fixture corpus.
 
