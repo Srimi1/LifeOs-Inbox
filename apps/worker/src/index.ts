@@ -24,6 +24,18 @@ import {
   renderSubject,
 } from '../../../packages/core/src/brief/render.ts';
 import { deliver } from './notify.ts';
+import { classifySignal } from '../../../packages/core/src/intelligence/classify.ts';
+import { resolveMode, cassetteCount } from '../../../packages/core/src/intelligence/client.ts';
+import {
+  recordCorrection,
+  acceptRule,
+  revokeRule,
+  loadPromotedRules,
+  loadCorrections,
+  correctionRate,
+} from '../../../packages/core/src/intelligence/overrides.ts';
+import { CATEGORIES, URGENCIES, ACTIONS } from '../../../packages/core/src/taxonomy.ts';
+import type { Category, Urgency, Action } from '../../../packages/core/src/taxonomy.ts';
 
 const BACKFILL_DAYS = 30;
 const POLL_MS = 5 * 60 * 1000;
@@ -228,6 +240,104 @@ async function cmdBrief(dry: boolean): Promise<void> {
   );
 }
 
+
+/** Everything the pipeline could not resolve, newest first. */
+async function cmdReview(): Promise<void> {
+  const events = loadRawEvents();
+  if (!events.length) return log('nothing stored yet — run backfill first');
+
+  const mode = resolveMode();
+  const results = await Promise.all(
+    events.map((e) => classifySignal(normalizeEmail(e.payload), { mode })),
+  );
+  const pending = results
+    .filter((r) => r.classification.action === 'needs_review' || r.classification.confidence === 'low')
+    .sort((a, b) => (a.signal.occurredAt < b.signal.occurredAt ? 1 : -1));
+
+  console.log('');
+  console.log(`  ${pending.length} of ${results.length} need review   (mode=${mode}, ${cassetteCount()} cassettes)`);
+  console.log('');
+  for (const r of pending.slice(0, 25)) {
+    console.log(`  ${r.signal.externalId}  ${r.signal.senderAddr}`);
+    console.log(`    ${r.signal.title.slice(0, 72)}`);
+    console.log(`    guessed ${r.classification.category}/${r.classification.urgency} · ${r.classification.ruleIds.slice(-1)[0] ?? 'no rule'}`);
+  }
+  console.log('');
+  console.log('  fix one:  npm run correct -- <signalId> <category> [urgency] [action]');
+  console.log('');
+}
+
+/**
+ * Record a correction. It takes effect before any model call from now on, and
+ * after three consistent corrections for a sender it offers to become a rule —
+ * at which point that sender never reaches a model again.
+ */
+async function cmdCorrect(args: string[]): Promise<void> {
+  const [signalId, category, urgency, action] = args;
+  if (!signalId || !category) {
+    return log(`usage: correct <signalId> <${CATEGORIES.join('|')}> [urgency] [action]`);
+  }
+  if (!(CATEGORIES as readonly string[]).includes(category)) {
+    return log(`unknown category ${category} — one of: ${CATEGORIES.join(' ')}`);
+  }
+  if (urgency && !(URGENCIES as readonly string[]).includes(urgency)) {
+    return log(`unknown urgency ${urgency} — one of: ${URGENCIES.join(' ')}`);
+  }
+  if (action && !(ACTIONS as readonly string[]).includes(action)) {
+    return log(`unknown action ${action} — one of: ${ACTIONS.join(' ')}`);
+  }
+
+  const event = loadRawEvents().find((e) => e.dedupKey === signalId);
+  if (!event) return log(`no stored signal with id ${signalId}`);
+
+  const sig = normalizeEmail(event.payload);
+  const before = await classifySignal(sig, { mode: resolveMode(), audit: false });
+
+  const { proposal } = recordCorrection(
+    sig,
+    { category: category as Category, urgency: urgency as Urgency, action: action as Action },
+    {
+      category: before.classification.category,
+      urgency: before.classification.urgency,
+      action: before.classification.action,
+      method: before.classification.method,
+    },
+  );
+
+  log(`${before.classification.category} -> ${category} for ${sig.senderAddr}`);
+  log('this correction now outranks every future model run for that message');
+
+  if (proposal) {
+    console.log('');
+    console.log(`  Three consistent corrections for ${proposal.senderAddr}.`);
+    console.log(`  Promote to a rule?  npm run accept -- ${proposal.senderAddr}`);
+    console.log(`  That sender would then be classified ${proposal.category} deterministically, with no model call.`);
+    console.log('');
+  }
+}
+
+function cmdRules(): void {
+  const rules = loadPromotedRules();
+  const corrections = loadCorrections();
+  console.log('');
+  if (!rules.length) console.log('  no promoted rules yet');
+  for (const r of rules) {
+    console.log(`  ${r.enabled ? 'on ' : 'off'}  ${r.senderAddr.padEnd(38)} -> ${r.category}`);
+    console.log(`       from ${r.fromCorrections} corrections on ${r.promotedAt.slice(0, 10)}`);
+  }
+  const bySender = new Map<string, number>();
+  for (const c of corrections) bySender.set(c.senderAddr, (bySender.get(c.senderAddr) ?? 0) + 1);
+  const pending = [...bySender.entries()]
+    .filter(([s, n]) => n >= 2 && !rules.some((r) => r.senderAddr === s))
+    .sort((a, b) => b[1] - a[1]);
+  if (pending.length) {
+    console.log('');
+    console.log('  building toward a rule:');
+    for (const [sender, n] of pending.slice(0, 8)) console.log(`    ${sender}  ${n} corrections`);
+  }
+  console.log('');
+}
+
 const cmd = process.argv[2];
 try {
   if (cmd === 'auth') await cmdAuth();
@@ -235,10 +345,34 @@ try {
   else if (cmd === 'poll') await cmdPoll();
   else if (cmd === 'triage') cmdTriage();
   else if (cmd === 'brief') await cmdBrief(process.argv.includes('--dry'));
+  else if (cmd === 'review') await cmdReview();
+  else if (cmd === 'correct') await cmdCorrect(process.argv.slice(3));
+  else if (cmd === 'rules') cmdRules();
+  else if (cmd === 'accept') {
+    const sender = process.argv[3];
+    const proposal = sender ? loadPromotedRules().find((r) => r.senderAddr === sender) : undefined;
+    const { proposeRule } = await import('../../../packages/core/src/intelligence/overrides.ts');
+    const fresh = sender ? proposeRule(sender) : undefined;
+    if (!sender) log('usage: accept <senderAddr>');
+    else if (proposal) log(`${sender} already has a rule`);
+    else if (!fresh) log(`${sender} does not have ${3} consistent corrections yet`);
+    else {
+      acceptRule(fresh);
+      log(`promoted: ${sender} -> ${fresh.category}. That sender no longer reaches a model.`);
+    }
+  }
+  else if (cmd === 'revoke') {
+    const sender = process.argv[3];
+    if (!sender) log('usage: revoke <senderAddr>');
+    else { revokeRule(sender); log(`revoked the rule for ${sender}`); }
+  }
   else if (cmd === 'status') {
     console.log(JSON.stringify({ ...readState(), connected: Boolean(loadTokens()) }, null, 2));
   } else {
-    console.log('usage: auth | backfill | poll | triage | brief [--dry] | status');
+    console.log(
+      'usage: auth | backfill | poll | triage | brief [--dry] | review |\n' +
+      '       correct <id> <category> [urgency] [action] | rules | accept <sender> | revoke <sender> | status',
+    );
     process.exitCode = 1;
   }
 } catch (err) {

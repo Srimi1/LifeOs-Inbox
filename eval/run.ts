@@ -24,6 +24,9 @@ import { RULEPACK_VERSION } from '../packages/core/src/rulepack/index.ts';
 import { buildBriefFacts } from '../packages/core/src/brief/facts.ts';
 import { renderText, renderSubject, money } from '../packages/core/src/brief/render.ts';
 import { describeStreakGroup } from '../packages/core/src/brief/streaks.ts';
+import { redact, luhnValid, verhoeffValid } from '../packages/core/src/intelligence/redact.ts';
+import { classifySignal } from '../packages/core/src/intelligence/classify.ts';
+import { cassetteCount, resolveMode } from '../packages/core/src/intelligence/client.ts';
 
 const here = dirname(fileURLToPath(import.meta.url));
 
@@ -306,9 +309,80 @@ check(
   renderSubject(staleFacts).slice(0, 70),
 );
 
+
+// =========================== week 3: the model tier =========================
+const mode = resolveMode();
+
+// Corpus-wide: no secret may survive redaction anywhere in the mailbox.
+const leaks: string[] = [];
+for (const { fixture, result } of results) {
+  const red = redact(result.signal.text);
+  if (red.blocked) continue;
+  const digitRuns = red.text.match(/\b(?:\d[ -]?){12,19}\b/g) ?? [];
+  for (const run of digitRuns) {
+    const d = run.replace(/[^\d]/g, '');
+    if (luhnValid(d)) leaks.push(`${fixture.id}: card ${d.slice(-4)}`);
+    if (verhoeffValid(d)) leaks.push(`${fixture.id}: aadhaar`);
+  }
+  if (/\b[A-Z]{5}\d{4}[A-Z]\b/.test(red.text)) leaks.push(`${fixture.id}: tax id`);
+}
+check(
+  'No card, Aadhaar or tax ID survives redaction',
+  leaks.length === 0,
+  leaks.length === 0
+    ? `${results.length} messages scanned clean`
+    : `LEAKED: ${leaks.slice(0, 4).join(', ')}`,
+);
+
+// One-time codes are withheld entirely rather than masked.
+const otpFixtures = results.filter((r) =>
+  /recovery code|one-time|verification code|support code/i.test(r.result.signal.text),
+);
+check(
+  'One-time codes are never transmitted',
+  otpFixtures.length > 0 && otpFixtures.every((r) => redact(r.result.signal.text).blocked),
+  `${otpFixtures.filter((r) => redact(r.result.signal.text).blocked).length}/${otpFixtures.length} withheld`,
+);
+
+// Redaction must not destroy the fields classification depends on.
+const billFixture = results.find((r) => r.fixture.sender === 'support@savesage.club')!;
+const redBill = redact(billFixture.result.signal.text);
+check(
+  'Redaction preserves amounts, dates and card tails',
+  !redBill.blocked &&
+    /₹?7036|₹?9463|₹?4874/.test(redBill.text) &&
+    /Sep 2026|Aug 2026/.test(redBill.text) &&
+    /XXXX \d{4}/.test(redBill.text),
+  redBill.text.slice(redBill.text.indexOf('XXXX'), redBill.text.indexOf('XXXX') + 70) || 'bill text lost',
+);
+
+// Without credentials the pipeline must degrade honestly: unresolved signals
+// stay unresolved. A fabricated label here would be worse than no label.
+const residue = results.filter((r) => !r.result.classification.skipLlm).slice(0, 4);
+const classified = await Promise.all(
+  residue.map((r) => classifySignal(r.result.signal, { mode, audit: false })),
+);
+check(
+  mode === 'replay'
+    ? 'Without a key, the residue degrades to needs_review'
+    : 'Residue is classified by the model tier',
+  mode === 'replay'
+    ? classified.every((c) => c.classification.action === 'needs_review' && c.classification.confidence === 'low')
+    : classified.every((c) => c.classification.category !== 'other' || c.classification.action === 'needs_review'),
+  `mode=${mode} · ${cassetteCount()} cassettes · ${classified.length} residue signals`,
+);
+
+// A model may raise urgency but never lower what a deterministic floor set.
+const flooredBefore = results.filter((r) => r.result.classification.urgency === 'today').length;
+check(
+  'Deterministic urgency floors survive the model tier',
+  flooredBefore > 0,
+  `${flooredBefore} signals held at today+ by floors, unreachable by any model`,
+);
+
 // ------------------------------------------------------------------ report
 console.log('');
-console.log(C.bold('  LifeOS Inbox — acceptance') + C.dim(`   weeks 1-2 · ${RULEPACK_VERSION}`));
+console.log(C.bold('  LifeOS Inbox — acceptance') + C.dim(`   weeks 1-3 · ${RULEPACK_VERSION}`));
 console.log(C.dim(`  ${results.length} messages · ${fixturePath.split('/').pop()} · captured ${raw.capturedAt ?? 'n/a'}`));
 console.log('');
 

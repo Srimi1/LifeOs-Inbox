@@ -25,3 +25,7 @@ eval/fixtures/*
 eval/_scratch/
 # Rendered briefs contain real balances, due dates and counterparties.
 eval/_out/
+
+# Recorded model responses: keyed by a hash of the redacted prompt, but the
+# prompt still contains his mail. Local only.
+eval/cassettes/

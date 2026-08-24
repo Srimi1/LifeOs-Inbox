@@ -1,4 +1,4 @@
-# Week 1 setup — the parts only you can do
+# Setup — the parts only you can do
 
 Everything else in week 1 is built and passing. These three steps need your
 hands on a browser, and the first one should happen **before** any more feature
@@ -97,6 +97,36 @@ forwarder in v1.x.
 
 ---
 
+## 4. Optional: the model tier (week 3)
+
+Everything above works without this. The rulepack resolves ~97% of your mail
+deterministically; the model tier only sees what is left over.
+
+Set `ANTHROPIC_API_KEY` in `.env` (or run `ant auth login`). Without it the
+pipeline degrades honestly — unresolved signals stay marked `needs_review`
+rather than being guessed at, which is the behaviour the eval asserts.
+
+**Before your mail reaches any API it is redacted**, and that layer is the most
+heavily tested code in the repo (12 dedicated tests). Card numbers are masked to
+their last four via a Luhn check, account numbers become salted tokens, Aadhaar
+is matched on its Verhoeff checksum, and your tax ID — which doubles as your
+broker-statement password — is removed entirely. Any message containing a
+one-time code is **never transmitted at all**, not even masked.
+
+Costs are bounded by design: `claude-haiku-4-5` handles the residue at $1/$5 per
+million tokens, `claude-sonnet-5` sees only what Haiku flags as ambiguous, and
+the instruction block is prompt-cached. At your volume that is rupees per month,
+falling as corrections become rules.
+
+```bash
+npm run review                              # what the pipeline could not resolve
+npm run correct -- <signalId> bill today    # fix one; it outranks every future model run
+npm run rules                               # promoted rules and what is building toward one
+npm run demo:correction                     # watch the loop end to end
+```
+
+---
+
 ## What's already done
 
 | | |
@@ -109,13 +139,18 @@ forwarder in v1.x.
 | Ownership guard | `packages/core/src/ownership.ts` |
 | Gmail OAuth + REST client + backfill + poller | `apps/worker/src/` |
 | Postgres schema (JSONL store mirrors it for now) | `packages/core/src/db/schema.sql` |
-| Acceptance eval on 115 real messages | `eval/run.ts` |
+| Daily brief: facts, streak collapse, templates, delivery | `packages/core/src/brief/` |
+| Redaction, model tiers, corrections, rule promotion, audit | `packages/core/src/intelligence/` |
+| Acceptance eval on 126 real messages | `eval/run.ts` |
 
 ```bash
-npm run eval       # 10 checks against your real mail
+npm run eval        # 22 acceptance checks against your real mail
+npm test            # 20 unit tests (redaction, corrections)
 npm run typecheck
-npm run auth       # after step 1
-npm run backfill   # last 30 days
-npm run triage     # what the pipeline makes of it
-npm run poll       # every 5 minutes
+
+npm run auth        # after step 1
+npm run backfill    # last 30 days
+npm run triage      # what the pipeline makes of it
+npm run brief:dry   # the morning brief, printed
+npm run poll        # every 5 minutes
 ```

@@ -18,7 +18,14 @@
     "status": "node --env-file-if-exists=.env apps/worker/src/index.ts status",
     "brief": "node --env-file-if-exists=.env apps/worker/src/index.ts brief",
     "brief:dry": "node --env-file-if-exists=.env apps/worker/src/index.ts brief --dry",
-    "brief:demo": "node eval/brief.ts --html"
+    "brief:demo": "node eval/brief.ts --html",
+    "test": "node --test 'packages/**/*.test.ts'",
+    "review": "node --env-file-if-exists=.env apps/worker/src/index.ts review",
+    "correct": "node --env-file-if-exists=.env apps/worker/src/index.ts correct",
+    "rules": "node --env-file-if-exists=.env apps/worker/src/index.ts rules",
+    "accept": "node --env-file-if-exists=.env apps/worker/src/index.ts accept",
+    "revoke": "node --env-file-if-exists=.env apps/worker/src/index.ts revoke",
+    "demo:correction": "node eval/correction-demo.ts"
   },
   "license": "MIT",
   "workspaces": [
@@ -28,5 +35,9 @@
   "devDependencies": {
     "@types/node": "^26.2.0",
     "typescript": "^5"
+  },
+  "dependencies": {
+    "@anthropic-ai/sdk": "^0.120.0",
+    "zod": "^4.4.3"
   }
 }

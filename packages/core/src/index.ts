@@ -12,3 +12,4 @@ export * from './ownership.ts';
 export * from './triage.ts';
 export * from './store.ts';
 export * from './brief/index.ts';
+export * from './intelligence/index.ts';
