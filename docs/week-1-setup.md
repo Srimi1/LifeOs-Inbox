@@ -142,6 +142,7 @@ npm run demo:correction                     # watch the loop end to end
 | Daily brief: facts, streak collapse, templates, delivery | `packages/core/src/brief/` |
 | Redaction, model tiers, corrections, rule promotion, audit | `packages/core/src/intelligence/` |
 | Money Ledger: obligations, canary, renewal inference, cards | `packages/module-money/` |
+| Follow-Up Desk: open loops, silence timers, dead channels | `packages/module-followup/` |
 | Acceptance eval on 126 real messages | `eval/run.ts` |
 
 ```bash
@@ -154,6 +155,7 @@ npm run backfill    # last 30 days
 npm run triage      # what the pipeline makes of it
 npm run brief:dry   # the morning brief, printed
 npm run money       # every bill and renewal owed, worst first
+npm run loops       # open loops, dead channels, who owes whom
 npm run demo:canary # drop the bill source and watch the canary fire
 npm run poll        # every 5 minutes
 ```

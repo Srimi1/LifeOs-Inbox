@@ -37,6 +37,16 @@ import {
 import { CATEGORIES, URGENCIES, ACTIONS } from '../../../packages/core/src/taxonomy.ts';
 import { loadOwner } from '../../../packages/core/src/ownership.ts';
 import { buildMoneyView, markPaid, decide, whichCard, loadOverlay } from '../../../packages/module-money/src/index.ts';
+import {
+  buildFollowUpView,
+  briefSection,
+  describeThread,
+  describeDeadChannel,
+  closeThread,
+  trackThread,
+  snoozeThread,
+  loadThreadOverlay,
+} from '../../../packages/module-followup/src/index.ts';
 import type { Category, Urgency, Action } from '../../../packages/core/src/taxonomy.ts';
 
 const BACKFILL_DAYS = 30;
@@ -211,7 +221,13 @@ async function cmdBrief(dry: boolean): Promise<void> {
 
   const state = readState();
   const results = events.map((e) => triage(normalizeEmail(e.payload)));
-  const facts = buildBriefFacts(results, { state });
+  // The Follow-Up Desk supplies its own brief section; core never imports it.
+  const desk = briefSection(buildFollowUpView(results, { overlay: loadThreadOverlay(), cap: 5 }));
+  const facts = buildBriefFacts(results, {
+    state,
+    waitingOn: desk.waitingOn,
+    deadChannels: desk.deadChannels,
+  });
 
   const subject = renderSubject(facts);
   const text = renderText(facts);
@@ -341,6 +357,43 @@ function cmdRules(): void {
 }
 
 
+/** Open loops, worst first, with the dead channels called out on top. */
+function cmdLoops(): void {
+  const events = loadRawEvents();
+  if (!events.length) return log('nothing stored yet — run backfill first');
+
+  const results = events.map((e) => triage(normalizeEmail(e.payload)));
+  const view = buildFollowUpView(results, { overlay: loadThreadOverlay(), cap: 8 });
+
+  console.log('');
+  console.log(
+    `  ${view.threads.length} tracked · ${view.counts.dead} dead · ${view.counts.escalate} escalate · ` +
+      `${view.counts.nudgeDue} nudge · ${view.counts.open} open`,
+  );
+
+  if (view.deadChannels.length) {
+    console.log('');
+    for (const c of view.deadChannels) console.log(`  ! ${describeDeadChannel(c)}`);
+  }
+
+  console.log('');
+  for (const t of view.actionable) {
+    console.log(`  ${t.state.padEnd(13)} ${describeThread(t)}`);
+    console.log(`      ${t.threadKey}   ${t.subject.slice(0, 60)}`);
+  }
+
+  if (view.owedByMe.length) {
+    console.log('');
+    console.log('  YOU OWE A REPLY');
+    for (const t of view.owedByMe.slice(0, 6)) {
+      console.log(`    ${t.counterparty.padEnd(34)} replied ${t.daysSilent}d ago`);
+    }
+  }
+  console.log('');
+  console.log('  close it:  npm run close -- <threadKey>');
+  console.log('');
+}
+
 const inr = new Intl.NumberFormat('en-IN', {
   style: 'currency', currency: 'INR', minimumFractionDigits: 2, maximumFractionDigits: 2,
 });
@@ -402,6 +455,22 @@ try {
   else if (cmd === 'correct') await cmdCorrect(process.argv.slice(3));
   else if (cmd === 'rules') cmdRules();
   else if (cmd === 'money') cmdMoney();
+  else if (cmd === 'loops') cmdLoops();
+  else if (cmd === 'close') {
+    const key = process.argv[3];
+    if (!key) log('usage: close <threadKey>   (keys are shown by `npm run loops`)');
+    else { closeThread(key); log(`closed ${key} — it stays off the desk`); }
+  }
+  else if (cmd === 'track') {
+    const key = process.argv[3];
+    if (!key) log('usage: track <threadKey>');
+    else { trackThread(key); log(`tracking ${key}`); }
+  }
+  else if (cmd === 'snooze') {
+    const [key, until] = process.argv.slice(3);
+    if (!key || !until) log('usage: snooze <threadKey> <YYYY-MM-DD>');
+    else { snoozeThread(key, until); log(`${key} muted until ${until}`); }
+  }
   else if (cmd === 'paid') {
     const id = process.argv[3];
     if (!id) log('usage: paid <obligationId>   (ids are shown by `npm run money`)');
@@ -444,7 +513,8 @@ try {
     console.log(
       'usage: auth | backfill | poll | triage | brief [--dry] | review |\n' +
       '       correct <id> <category> [urgency] [action] | rules | accept <sender> | revoke <sender> |\n' +
-      '       money | paid <id> | keep <who> | cancel <who> | card <category> | status',
+      '       money | paid <id> | keep <who> | cancel <who> | card <category> |\n' +
+      '       loops | close <thread> | track <thread> | snooze <thread> <date> | status',
     );
     process.exitCode = 1;
   }

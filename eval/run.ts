@@ -29,6 +29,7 @@ import { classifySignal } from '../packages/core/src/intelligence/classify.ts';
 import { cassetteCount, resolveMode } from '../packages/core/src/intelligence/client.ts';
 import { buildMoneyView } from '../packages/module-money/src/index.ts';
 import { loadOwner } from '../packages/core/src/ownership.ts';
+import { buildFollowUpView, briefSection } from '../packages/module-followup/src/index.ts';
 
 const here = dirname(fileURLToPath(import.meta.url));
 
@@ -203,7 +204,11 @@ const deadAddrs = new Set(
 );
 check(
   'Bounces detected and dead address named',
-  bounces.length === 3 && deadAddrs.has('support@github.com'),
+  // Assert the property, not the count — an earlier version hardcoded 3 and
+  // broke the moment the fixture set grew to match reality.
+  bounces.length > 0 &&
+    deadAddrs.has('support@github.com') &&
+    bounces.every((b) => b.result.extractions.some((e) => e.kind === 'dead_address')),
   `${bounces.length} bounces · dead: ${[...deadAddrs].join(', ') || 'none'}`,
 );
 
@@ -442,9 +447,71 @@ check(
   `total ₹0 · ${blindMoney.alerts.map((a) => a.kind).join(', ')}`,
 );
 
+
+// ========================= week 5: the follow-up desk =======================
+const desk = buildFollowUpView(results.map((r) => r.result), { now: briefNow, cap: 5 });
+
+check(
+  'Open loops are tracked without a model',
+  desk.threads.length >= 8 && desk.threads.every((t) => t.state !== 'closed'),
+  `${desk.threads.length} tracked · ${desk.counts.dead} dead · ${desk.counts.escalate} escalate · ${desk.counts.open} open`,
+);
+
+// The single best proof point in the mailbox, with the true number.
+const gh = desk.deadChannels.find((c) => c.address === 'support@github.com');
+check(
+  'Dead channel names the address and the true resend count',
+  Boolean(gh) && gh!.totalSent === 7 && gh!.sentAfterFirstBounce >= 5,
+  gh
+    ? `${gh.totalSent} sent, ${gh.bounces} bounced, ${gh.sentAfterFirstBounce} after the first rejection`
+    : 'no dead channel found',
+);
+
+// He opened a new thread per follow-up, so without collapsing, one dead
+// address fills the whole desk and hides the genuinely stale threads.
+const deadRows = desk.actionable.filter((t) => t.state === 'dead_channel');
+check(
+  'One dead address is one row, not seven',
+  deadRows.length === 1 &&
+    (deadRows[0].collapsedThreads ?? 1) > 1 &&
+    desk.actionable.some((t) => t.state === 'escalate'),
+  `${deadRows.length} dead row spanning ${deadRows[0]?.collapsedThreads ?? 0} threads · ` +
+    `${desk.actionable.filter((t) => t.state === 'escalate').length} escalations still visible`,
+);
+
+// A vendor that replied is not a vendor being silent.
+check(
+  'Threads where they replied flip to "you owe a reply"',
+  desk.owedByMe.length >= 2 &&
+    desk.owedByMe.every((t) => t.direction === 'i_owe_reply') &&
+    !desk.actionable.some((t) => t.direction === 'i_owe_reply' && t.state !== 'dead_channel'),
+  desk.owedByMe.map((t) => `${t.counterparty.split('@')[0]}:${t.daysSilent}d`).join(' · ') || 'none',
+);
+
+check(
+  'The desk stays within its cap so it keeps being read',
+  desk.actionable.length <= 5,
+  `${desk.actionable.length} rows reach the brief out of ${desk.threads.length} tracked`,
+);
+
+// And the module's section actually reaches the brief, without core importing it.
+const deskSection = briefSection(desk);
+const deskBrief = buildBriefFacts(results.map((r) => r.result), {
+  now: briefNow,
+  state: { lastSyncAt: briefNow.toISOString(), lastSyncOk: true },
+  waitingOn: deskSection.waitingOn,
+  deadChannels: deskSection.deadChannels,
+});
+check(
+  'The desk supplies the brief section, core stays independent',
+  deskBrief.loops.length === deskSection.waitingOn.length &&
+    deskBrief.actNow.some((a) => a.kind === 'dead_channel' && /7 email/.test(a.detail ?? '')),
+  deskBrief.actNow.find((a) => a.kind === 'dead_channel')?.detail ?? 'no dead-channel row',
+);
+
 // ------------------------------------------------------------------ report
 console.log('');
-console.log(C.bold('  LifeOS Inbox — acceptance') + C.dim(`   weeks 1-4 · ${RULEPACK_VERSION}`));
+console.log(C.bold('  LifeOS Inbox — acceptance') + C.dim(`   weeks 1-5 · ${RULEPACK_VERSION}`));
 console.log(C.dim(`  ${results.length} messages · ${fixturePath.split('/').pop()} · captured ${raw.capturedAt ?? 'n/a'}`));
 console.log('');
 

@@ -17,6 +17,7 @@ import { triage } from '../packages/core/src/triage.ts';
 import { buildBriefFacts } from '../packages/core/src/brief/facts.ts';
 import { renderText, renderHtml, renderSubject } from '../packages/core/src/brief/render.ts';
 import { readState } from '../packages/core/src/store.ts';
+import { buildFollowUpView, briefSection } from '../packages/module-followup/src/index.ts';
 
 const here = dirname(fileURLToPath(import.meta.url));
 const fixturePath = [
@@ -40,8 +41,13 @@ const now = nowArg
 const results = messages.map((m) => triage(normalizeEmail(m)));
 
 const state = readState();
+// The Follow-Up Desk supplies its own section; core never imports the module.
+const desk = briefSection(buildFollowUpView(results, { now, cap: 5 }));
+
 const facts = buildBriefFacts(results, {
   now,
+  waitingOn: desk.waitingOn,
+  deadChannels: desk.deadChannels,
   // With no real sync yet, borrow the capture time so the demo does not shout
   // a staleness alarm about a mailbox that was read minutes ago.
   state: state.lastSyncAt ? state : { lastSyncAt: now.toISOString(), lastSyncOk: true },

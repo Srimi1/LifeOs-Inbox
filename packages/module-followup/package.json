@@ -1,0 +1,8 @@
+{
+  "name": "@lifeos/module-followup",
+  "version": "0.1.0",
+  "description": "Follow-Up Desk: open loops, silence timers and dead-channel detection.",
+  "license": "MIT",
+  "type": "module",
+  "exports": { ".": "./src/index.ts" }
+}

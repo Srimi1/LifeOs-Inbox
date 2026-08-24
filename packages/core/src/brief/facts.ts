@@ -109,6 +109,14 @@ export interface BriefOptions {
   loopCap?: number;
   syncStaleHours?: number;
   state?: SyncState;
+  /**
+   * Supplied by the Follow-Up Desk when that module is loaded. Core keeps its
+   * own simpler derivation as a fallback so the brief still works standalone,
+   * but it never imports the module — the section is handed in, which is the
+   * module contract and the seam that keeps the spine independent.
+   */
+  waitingOn?: LoopView[];
+  deadChannels?: DeadChannelView[];
 }
 
 /** Their dates record what happened, not what is owed. */
@@ -216,7 +224,7 @@ export function buildBriefFacts(results: TriageResult[], opts: BriefOptions = {}
     else loopGroups.set(key, [r]);
   }
 
-  const loops: LoopView[] = [...loopGroups.values()]
+  const derivedLoops: LoopView[] = [...loopGroups.values()]
     .map((group) => {
       const sorted = [...group].sort((a, b) =>
         a.signal.occurredAt < b.signal.occurredAt ? -1 : 1,
@@ -244,6 +252,8 @@ export function buildBriefFacts(results: TriageResult[], opts: BriefOptions = {}
     .sort((a, b) => b.daysSilent - a.daysSilent)
     .slice(0, loopCap);
 
+  const loops = opts.waitingOn ? opts.waitingOn.slice(0, loopCap) : derivedLoops;
+
   // ---------------------------------------------------------- dead channels
   const deadMap = new Map<string, DeadChannelView>();
   for (const r of results.filter((x) => x.classification.category === 'bounce')) {
@@ -263,7 +273,8 @@ export function buildBriefFacts(results: TriageResult[], opts: BriefOptions = {}
       });
     }
   }
-  const deadChannels = [...deadMap.values()].sort((a, b) => b.bounceCount - a.bounceCount);
+  const deadChannels =
+    opts.deadChannels ?? [...deadMap.values()].sort((a, b) => b.bounceCount - a.bounceCount);
 
   // A loop whose counterparty is bouncing is not merely silent — nudging it
   // would not arrive either. Annotate rather than list the address twice.
