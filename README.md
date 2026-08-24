@@ -1,5 +1,9 @@
 # LifeOS Inbox
 
+<p align="center">
+  <img src="assets/branding/logo.jpg" alt="LifeOS Inbox Logo" width="160" style="border-radius: 28px; box-shadow: 0 8px 30px rgba(180, 140, 255, 0.25);" />
+</p>
+
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![TypeScript](https://img.shields.io/badge/TypeScript-strict-3178C6.svg)](tsconfig.json)
 [![Runtime](https://img.shields.io/badge/Node-%E2%89%A522-339933.svg)](package.json)
