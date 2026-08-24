@@ -30,6 +30,18 @@ export interface ObligationDraft {
 const LEGAL_SUFFIX =
   /\b(private limited|pvt\.? ?ltd\.?|limited|ltd\.?|llp|inc\.?|corp\.?|technologies|solutions|services|india)\b/gi;
 
+/**
+ * A card's identity is its last four digits, never its label.
+ *
+ * SaveSage names the same card differently across its templates — "Axis Atlas
+ * XXXX 6268" in the statement mail, plain "Axis XXXX 6268" in the reminder.
+ * Keying on the label split one bill into two and inflated the outstanding
+ * total by the full amount of every card that had a reminder.
+ */
+export function cardCounterparty(last4: string): string {
+  return `card-${last4}`;
+}
+
 export function normaliseCounterparty(raw: string): string {
   return raw
     .toLowerCase()

@@ -18,6 +18,8 @@ import { buildBriefFacts } from '../packages/core/src/brief/facts.ts';
 import { renderText, renderHtml, renderSubject } from '../packages/core/src/brief/render.ts';
 import { readState } from '../packages/core/src/store.ts';
 import { buildFollowUpView, briefSection } from '../packages/module-followup/src/index.ts';
+import { buildMoneyView } from '../packages/module-money/src/index.ts';
+import { loadOwner } from '../packages/core/src/ownership.ts';
 
 const here = dirname(fileURLToPath(import.meta.url));
 const fixturePath = [
@@ -43,11 +45,22 @@ const results = messages.map((m) => triage(normalizeEmail(m)));
 const state = readState();
 // The Follow-Up Desk supplies its own section; core never imports the module.
 const desk = briefSection(buildFollowUpView(results, { now, cap: 5 }));
+const ledger = buildMoneyView(results, { now, ownedCardLast4: loadOwner().cardLast4 });
 
 const facts = buildBriefFacts(results, {
   now,
   waitingOn: desk.waitingOn,
   deadChannels: desk.deadChannels,
+  bills: ledger.bills
+    .filter((b) => b.dueDate && b.status !== 'paid')
+    .map((b) => ({
+      label: b.label,
+      cardLast4: b.cardLast4,
+      amount: b.amount,
+      dueDate: b.dueDate!,
+      daysUntil: b.daysUntil ?? 0,
+      signalId: b.evidence[0],
+    })),
   // With no real sync yet, borrow the capture time so the demo does not shout
   // a staleness alarm about a mailbox that was read minutes ago.
   state: state.lastSyncAt ? state : { lastSyncAt: now.toISOString(), lastSyncOk: true },

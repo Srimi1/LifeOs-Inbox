@@ -86,6 +86,12 @@ export interface SyncHealth {
 export interface BriefFacts {
   generatedAt: string;
   actNow: ActNowItem[];
+  /**
+   * How many urgent items existed before the cap. A brief that quietly shows
+   * five of six is doing the thing this product exists to prevent, so the
+   * remainder is counted and disclosed rather than dropped.
+   */
+  actNowTotal: number;
   bills: BillView[];
   billTotal: number;
   billWindowDays: number;
@@ -117,6 +123,13 @@ export interface BriefOptions {
    */
   waitingOn?: LoopView[];
   deadChannels?: DeadChannelView[];
+  /**
+   * Supplied by the Money Ledger. Core's own derivation reads obligation
+   * drafts straight off each signal and cannot merge them, so three SaveSage
+   * templates describing one bill produced three rows and a total inflated by
+   * more than double. Merging is the ledger's job; the brief just renders it.
+   */
+  bills?: BillView[];
 }
 
 /** Their dates record what happened, not what is owed. */
@@ -145,7 +158,7 @@ export function buildBriefFacts(results: TriageResult[], opts: BriefOptions = {}
   const staleHours = opts.syncStaleHours ?? 12;
 
   // ------------------------------------------------------------------ bills
-  const bills: BillView[] = results
+  const derivedBills: BillView[] = results
     .filter((r) => r.obligation?.kind === 'bill' && r.obligation.dueDate)
     .map((r) => ({
       label: r.obligation!.counterpartyLabel,
@@ -158,6 +171,9 @@ export function buildBriefFacts(results: TriageResult[], opts: BriefOptions = {}
     .filter((b) => b.daysUntil >= -30 && b.daysUntil <= windowDays)
     .sort((a, b) => a.daysUntil - b.daysUntil);
 
+  const bills = opts.bills
+    ? opts.bills.filter((b) => b.daysUntil >= -30 && b.daysUntil <= windowDays).sort((a, b) => a.daysUntil - b.daysUntil)
+    : derivedBills;
   const billTotal = bills.reduce((n, b) => n + (b.amount ?? 0), 0);
 
   // -------------------------------------------------------- renewals at risk
@@ -383,6 +399,7 @@ export function buildBriefFacts(results: TriageResult[], opts: BriefOptions = {}
   return {
     generatedAt: now.toISOString(),
     actNow: actNow.slice(0, actNowCap),
+    actNowTotal: actNow.length,
     bills,
     billTotal,
     billWindowDays: windowDays,

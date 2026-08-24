@@ -94,6 +94,8 @@ export function renderText(f: BriefFacts): string {
       L.push(`  * ${a.title}${amt}`);
       if (a.detail) L.push(`    ${a.detail}`);
     }
+    const hidden = f.actNowTotal - f.actNow.length;
+    if (hidden > 0) L.push(`  + ${hidden} more urgent — see the full list`);
   }
 
   if (f.bills.length) {
@@ -225,6 +227,12 @@ export function renderHtml(f: BriefFacts): string {
             (a.detail ? `<div style="color:${P.dim};font:12px ${mono};margin-top:2px">${esc(a.detail)}</div>` : ''),
           P.breach,
         ),
+      );
+    }
+    const hidden = f.actNowTotal - f.actNow.length;
+    if (hidden > 0) {
+      H.push(
+        `<div style="color:${P.breach};font:12px ${mono};padding-left:15px">+ ${hidden} more urgent — see the full list</div>`,
       );
     }
   }

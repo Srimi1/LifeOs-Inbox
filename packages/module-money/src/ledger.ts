@@ -182,6 +182,10 @@ function mergeInto(target: LedgerEntry, draft: ObligationDraft): void {
   for (const id of draft.evidence) if (!target.evidence.includes(id)) target.evidence.push(id);
   if (!target.sources.includes(draft.sourceParser)) target.sources.push(draft.sourceParser);
 
+  // Templates name the same card with varying specificity ("Axis" vs "Axis
+  // Atlas"). Keep the most informative one for display.
+  if (draft.counterpartyLabel.length > target.label.length) target.label = draft.counterpartyLabel;
+
   const incoming = rank(draft.sourceParser);
   const current = rank(target.sources[0] ?? '');
 

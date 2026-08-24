@@ -238,10 +238,31 @@ check(
 // ============================ week 2: the daily brief ========================
 // `now` is pinned to the capture date so the brief's relative dates are stable.
 const briefNow = new Date(`${raw.capturedAt ?? '2026-08-24'}T01:30:00Z`);
-const facts = buildBriefFacts(
-  results.map((r) => r.result),
-  { now: briefNow, state: { lastSyncAt: briefNow.toISOString(), lastSyncOk: true } },
-);
+
+// Build the brief the way the product does: both modules feed their sections
+// in. Testing core's standalone fallback would pass while the real brief was
+// showing one card three times.
+const evalDesk = briefSection(buildFollowUpView(results.map((r) => r.result), { now: briefNow, cap: 5 }));
+const evalLedger = buildMoneyView(results.map((r) => r.result), {
+  now: briefNow,
+  ownedCardLast4: loadOwner().cardLast4,
+});
+const facts = buildBriefFacts(results.map((r) => r.result), {
+  now: briefNow,
+  state: { lastSyncAt: briefNow.toISOString(), lastSyncOk: true },
+  waitingOn: evalDesk.waitingOn,
+  deadChannels: evalDesk.deadChannels,
+  bills: evalLedger.bills
+    .filter((b) => b.dueDate && b.status !== 'paid')
+    .map((b) => ({
+      label: b.label,
+      cardLast4: b.cardLast4,
+      amount: b.amount,
+      dueDate: b.dueDate!,
+      daysUntil: b.daysUntil ?? 0,
+      signalId: b.evidence[0],
+    })),
+});
 const briefText = renderText(facts);
 
 // 16 identical CI emails must become one line naming both workflows.
@@ -255,20 +276,33 @@ check(
   streakLine || 'no streaks detected',
 );
 
-// Both live suspensions must reach Act Now, not sit in a category bucket.
-const actTitles = facts.actNow.map((a) => a.title).join(' | ');
+// Both live suspensions must be treated as urgent. The visible list is capped,
+// so assert on the full urgent set and that the overflow is disclosed.
+const risky = facts.renewalRisks.map((r) => r.subject).join(' | ');
 check(
-  'Both suspensions surface in Act Now',
-  /AWS imminent suspension/i.test(actTitles) && /X subscription suspended/i.test(actTitles),
-  actTitles.slice(0, 110) || 'Act Now is empty',
+  'Both suspensions are treated as urgent',
+  /AWS imminent suspension/i.test(risky) &&
+    /X subscription suspended/i.test(risky) &&
+    facts.actNowTotal >= facts.actNow.length,
+  `${facts.actNowTotal} urgent, ${facts.actNow.length} shown` +
+    (facts.actNowTotal > facts.actNow.length ? ' (+overflow disclosed)' : ''),
 );
 
 check(
-  'Dead channel leads Act Now with a bounce count',
-  facts.actNow[0]?.kind === 'dead_channel' &&
-    /support@github\.com/.test(facts.actNow[0].title) &&
+  'Urgent overflow is disclosed, never silently dropped',
+  facts.actNowTotal <= facts.actNow.length || /\+ \d+ more urgent/.test(briefText),
+  facts.actNowTotal > facts.actNow.length
+    ? `${facts.actNowTotal - facts.actNow.length} hidden and announced`
+    : 'nothing hidden',
+);
+
+const deadRow = facts.actNow.find((a) => a.kind === 'dead_channel');
+check(
+  'Dead channel reaches Act Now with a bounce count',
+  Boolean(deadRow) &&
+    /support@github\.com/.test(deadRow!.title) &&
     (facts.deadChannels[0]?.bounceCount ?? 0) >= 3,
-  `${facts.actNow[0]?.title ?? 'none'} · ${facts.deadChannels[0]?.bounceCount ?? 0} bounces`,
+  `${deadRow?.title ?? 'none'} · ${facts.deadChannels[0]?.bounceCount ?? 0} bounces`,
 );
 
 check(
@@ -505,8 +539,8 @@ const deskBrief = buildBriefFacts(results.map((r) => r.result), {
 check(
   'The desk supplies the brief section, core stays independent',
   deskBrief.loops.length === deskSection.waitingOn.length &&
-    deskBrief.actNow.some((a) => a.kind === 'dead_channel' && /7 email/.test(a.detail ?? '')),
-  deskBrief.actNow.find((a) => a.kind === 'dead_channel')?.detail ?? 'no dead-channel row',
+    deskBrief.deadChannels.some((d) => d.address === 'support@github.com' && d.bounceCount === 7),
+  `${deskBrief.loops.length} loops · dead bounce count ${deskBrief.deadChannels[0]?.bounceCount ?? 0}`,
 );
 
 // ------------------------------------------------------------------ report

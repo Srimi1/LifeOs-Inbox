@@ -223,10 +223,21 @@ async function cmdBrief(dry: boolean): Promise<void> {
   const results = events.map((e) => triage(normalizeEmail(e.payload)));
   // The Follow-Up Desk supplies its own brief section; core never imports it.
   const desk = briefSection(buildFollowUpView(results, { overlay: loadThreadOverlay(), cap: 5 }));
+  const ledger = buildMoneyView(results, { overlay: loadOverlay(), ownedCardLast4: loadOwner().cardLast4 });
   const facts = buildBriefFacts(results, {
     state,
     waitingOn: desk.waitingOn,
     deadChannels: desk.deadChannels,
+    bills: ledger.bills
+      .filter((b) => b.dueDate && b.status !== 'paid')
+      .map((b) => ({
+        label: b.label,
+        cardLast4: b.cardLast4,
+        amount: b.amount,
+        dueDate: b.dueDate!,
+        daysUntil: b.daysUntil ?? 0,
+        signalId: b.evidence[0],
+      })),
   });
 
   const subject = renderSubject(facts);

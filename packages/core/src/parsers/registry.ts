@@ -1,6 +1,6 @@
 import type { Signal, Extraction } from '../signal.ts';
 import type { ObligationDraft } from '../obligation.ts';
-import { normaliseCounterparty } from '../obligation.ts';
+import { normaliseCounterparty, cardCounterparty } from '../obligation.ts';
 import { evidenced } from '../extract/util.ts';
 import { parseRupees } from '../extract/amount.ts';
 import { extractDates } from '../extract/date.ts';
@@ -43,7 +43,7 @@ function isoFromWordDate(day: string, mon: string, year: string): string | undef
 export const savesage: Parser = (sig) => {
   const t = sig.text;
   const re =
-    /((?:[A-Z][A-Za-z0-9&]*\s+){1,4})[Xx]{3,4}\s*(\d{4})\s*Amount\s*Due\s*(?:₹|Rs\.?|INR)\s?([\d,]+(?:\.\d{1,2})?)\s*(?:Pending\s*)?Due\s*Date\s*(\d{1,2})(?:st|nd|rd|th)?\s+([A-Za-z]{3,9})\.?,?\s+(\d{4})/i;
+    /((?:[A-Z][A-Za-z0-9&]*\s+){1,4})[Xx]{3,4}\s*(\d{4})\s*Amount\s*Due\s*(?:₹|Rs\.?|INR)?\s?([\d,]+(?:\.\d{1,2})?)\s*(?:Pending\s*)?Due\s*Date\s*(\d{1,2})(?:st|nd|rd|th)?\s+([A-Za-z]{3,9})\.?,?\s+(\d{4})/i;
   const m = t.match(re);
   if (!m || m.index === undefined) {
     return { extractions: [], quarantine: 'savesage: bill block not found in body' };
@@ -69,7 +69,8 @@ export const savesage: Parser = (sig) => {
     extractions,
     obligation: {
       kind: 'bill',
-      counterparty: normaliseCounterparty(label),
+      // Keyed on the card, not the label it happened to be given.
+      counterparty: cardCounterparty(last4),
       counterpartyLabel: label,
       amount: amount ?? undefined,
       currency: 'INR',
