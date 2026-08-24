@@ -85,10 +85,10 @@ small spend that adds up.
 In each bank's net-banking alert settings, set the **email** alert threshold to
 ₹0 or ₹1:
 
-- [ ] HDFC (Tata Neu Plus ····7895, Biz Grow ····5609)
-- [ ] ICICI (Amazon Pay ····9005)
-- [ ] Axis (Flipkart ····4242)
-- [ ] The card ending ····6268 seen in your Razorpay receipts
+- [ ] HDFC (Acme Neo ····4417, Biz Grow ····8801)
+- [ ] ICICI (Amazon Pay ····1234)
+- [ ] Axis (Flipkart ····4455)
+- [ ] The card ending ····5678 seen in your Razorpay receipts
 
 Note the honest limit: **UPI from a bank account is SMS-only** and will not
 appear. UPI on a *credit* card does arrive by email — that is already parsed.
@@ -179,7 +179,7 @@ trust in the whole module.
 Add a rule when you want it surfaced at the moment of decision:
 
 ```json
-{ "category": "dining", "cardLast4": "9005", "note": "5% back on online food" }
+{ "category": "dining", "cardLast4": "1234", "note": "5% back on online food" }
 ```
 
 Then `npm run card dining` answers from your own rule, and says so.

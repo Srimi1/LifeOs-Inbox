@@ -5,7 +5,7 @@ const V = 'amount@1';
 
 /**
  * Indian rupee amounts as they actually appear in his mail:
- *   Rs.361.00 · Rs. 60000 · ₹1,249 · ₹4874.03 · INR 1000 · ₹ 10,000
+ *   Rs.361.00 · Rs. 60000 · ₹1,249 · ₹1590.25 · INR 1000 · ₹ 10,000
  * Lakh/crore words are deliberately not parsed — they appear only in marketing
  * copy ("Unlock ₹1 Lakh in minutes"), never in a real bill.
  */

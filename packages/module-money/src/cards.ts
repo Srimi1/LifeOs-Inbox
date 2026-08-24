@@ -83,7 +83,7 @@ export function whichCard(category: string, table: CardTable = loadCardTable()):
     return {
       because: table.rules.length
         ? `no rule for "${category}" yet — add one to cards.json`
-        : `no rules in cards.json yet. Add one: {"category":"${category}","cardLast4":"9005"}`,
+        : `no rules in cards.json yet. Add one: {"category":"${category}","cardLast4":"1234"}`,
     };
   }
 

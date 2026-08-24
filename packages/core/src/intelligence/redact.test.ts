@@ -77,16 +77,16 @@ test('money, dates and masked tails survive untouched', () => {
   // If redaction ate these the classifier would lose exactly the fields the
   // product depends on.
   const s =
-    'HDFC Biz Grow XXXX 5609 Amount Due ₹7,036.00 Pending Due Date 9th Sep 2026. ' +
-    'Rs.361.00 spent on 24-08-26. Total ₹21,373.98 across 3 bills.';
+    'Acme Rewards XXXX 8801 Amount Due ₹2,500.00 Pending Due Date 9th Sep 2026. ' +
+    'Rs.361.00 spent on 24-08-26. Total ₹6,801.24 across 3 bills.';
   const r = redact(s);
   assert.equal(r.blocked, false);
-  assert.match(r.text, /₹7,036\.00/);
+  assert.match(r.text, /₹2,500\.00/);
   assert.match(r.text, /9th Sep 2026/);
-  assert.match(r.text, /XXXX 5609/);
+  assert.match(r.text, /XXXX 8801/);
   assert.match(r.text, /Rs\.361\.00/);
   assert.match(r.text, /24-08-26/);
-  assert.match(r.text, /₹21,373\.98/);
+  assert.match(r.text, /₹6,801\.24/);
 });
 
 test('email local parts are masked but domains survive', () => {

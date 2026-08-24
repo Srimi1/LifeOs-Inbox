@@ -32,7 +32,7 @@ test('the closing edge of a window is the deadline, not the opening', () => {
 
 test('a hyphen between two non-dates is not a window', () => {
   assert.deepEqual(extractWindows('Order 4168064881 - 205235179 shipped'), []);
-  assert.deepEqual(extractWindows('Call +91 9876543210 - ext 4242'), []);
+  assert.deepEqual(extractWindows('Call +91 9876543210 - ext 4455'), []);
 });
 
 test('a backwards range is rejected', () => {
@@ -41,7 +41,7 @@ test('a backwards range is rejected', () => {
 
 test('deadline kind comes from the words around it', () => {
   assert.equal(classifyDeadline('e-Voting for NHPC LIMITED closes'), 'vote');
-  assert.equal(classifyDeadline('Your credit card bill Amount Due 7036'), 'pay');
+  assert.equal(classifyDeadline('Your credit card bill Amount Due 2500'), 'pay');
   assert.equal(classifyDeadline('Your subscription will automatically renew on 2 Sept'), 'decide');
   assert.equal(classifyDeadline('Cohort 3 registration closes'), 'submit');
   assert.equal(classifyDeadline('Nothing dated in here at all'), 'other');
@@ -119,13 +119,13 @@ test('ledger obligations and extracted deadlines share one timeline', () => {
   const radar = buildRadar(results, {
     now: NOW,
     obligations: [
-      { id: 'bill_x', label: 'ICICI Amazon Pay', kind: 'bill', dueDate: '2026-08-30', amount: 9463.95 },
-      { id: 'bill_y', label: 'ICICI Credit Card', kind: 'bill', dueDate: '2026-08-03', amount: 41037.5 },
+      { id: 'bill_x', label: 'Gamma Shop', kind: 'bill', dueDate: '2026-08-30', amount: 3210.99 },
+      { id: 'bill_y', label: 'Gamma Classic', kind: 'bill', dueDate: '2026-08-03', amount: 9876.54 },
     ],
   });
   assert.deepEqual(
     radar.map((i) => i.title),
-    ['ICICI Credit Card', 'e-Voting OPEN FROM 25-08-2026 09:00 TO 27-08-2026 17:00', 'ICICI Amazon Pay'],
+    ['Gamma Classic', 'e-Voting OPEN FROM 25-08-2026 09:00 TO 27-08-2026 17:00', 'Gamma Shop'],
     'overdue first, then soonest',
   );
   assert.equal(radar[0].daysUntil, -21);

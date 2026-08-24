@@ -5,7 +5,7 @@ const V = 'ident@1';
 
 /**
  * Masked card tails as they appear across his issuers:
- *   XXXX 5609 · XXXX-XXXX-XXXX-6268 · xx7895 · ····8842
+ *   XXXX 8801 · XXXX-XXXX-XXXX-5678 · xx4417 · ····8842
  */
 /**
  * Every quantifier is bounded and a separator is *required* between mask runs.

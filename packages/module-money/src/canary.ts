@@ -39,7 +39,7 @@ const GRACE_DAYS = 7;
  * Link a card to a bill.
  *
  * Not every statement names a card tail — the HDFC e-statement identifies the
- * product ("Tata Neu Plus HDFC Bank Credit Card") and keeps the number in the
+ * product ("Acme Neo Credit Card") and keeps the number in the
  * password-protected PDF. Matching on the label as well stops the canary
  * reporting a card as never-billed when its statement is sitting right there.
  */

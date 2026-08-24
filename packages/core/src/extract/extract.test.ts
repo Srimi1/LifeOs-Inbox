@@ -25,9 +25,9 @@ test('a long run of mask characters cannot hang the extractor', () => {
 
 test('masked card tails still parse in every real shape', () => {
   const shapes: [string, string][] = [
-    ['Method card XXXX-XXXX-XXXX-6268 Paid On', '6268'],
-    ['HDFC Biz Grow XXXX 5609 Amount Due', '5609'],
-    ['Credit Card xx7895: Zero Processing Fee', '7895'],
+    ['Method card XXXX-XXXX-XXXX-5678 Paid On', '5678'],
+    ['Acme Rewards XXXX 8801 Amount Due', '8801'],
+    ['Credit Card xx4417: Zero Processing Fee', '4417'],
     ['Millennia ····8842 statement', '8842'],
   ];
   for (const [text, want] of shapes) {

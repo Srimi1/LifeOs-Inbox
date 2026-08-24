@@ -33,7 +33,7 @@ function isoFromWordDate(day: string, mon: string, year: string): string | undef
  *
  * He already forwards every card into one aggregator, so one template covers
  * all four cards. Real body shape:
- *   "… details below. HDFC Biz Grow XXXX 5609 Amount Due ₹7036
+ *   "… details below. Acme Rewards XXXX 8801 Amount Due ₹2500
  *     Pending Due Date 9th Sep 2026 Your 475 pts are …"
  *
  * This is also the dependency the plan flagged: SaveSage is a third party and

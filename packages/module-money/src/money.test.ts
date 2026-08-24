@@ -87,8 +87,8 @@ const billEntry = (last4: string, label: string, evidenceId: string) => ({
 
 test('the canary stays quiet while bills keep arriving', () => {
   const alerts = runCanary({
-    entries: [billEntry('5609', 'HDFC Biz Grow', 's1')],
-    knownCards: [{ last4: '5609' }],
+    entries: [billEntry('8801', 'Acme Rewards', 's1')],
+    knownCards: [{ last4: '8801' }],
     receivedAt: new Map([['s1', '2026-08-16T00:00:00Z']]),
     now: new Date('2026-08-24T00:00:00Z'),
     expectedSources: ['savesage@1'],
@@ -99,8 +99,8 @@ test('the canary stays quiet while bills keep arriving', () => {
 test('kill the bill mail and the canary fires', () => {
   // The demo: same card, but the statement that should have arrived did not.
   const alerts = runCanary({
-    entries: [billEntry('5609', 'HDFC Biz Grow', 's1')],
-    knownCards: [{ last4: '5609' }],
+    entries: [billEntry('8801', 'Acme Rewards', 's1')],
+    knownCards: [{ last4: '8801' }],
     receivedAt: new Map([['s1', '2026-06-16T00:00:00Z']]),
     now: new Date('2026-08-24T00:00:00Z'),
     expectedSources: [],
@@ -114,13 +114,13 @@ test('kill the bill mail and the canary fires', () => {
 test('a card that never bills is surfaced, not ignored', () => {
   const alerts = runCanary({
     entries: [],
-    knownCards: [{ last4: '6268' }],
+    knownCards: [{ last4: '5678' }],
     receivedAt: new Map(),
     now: new Date('2026-08-24T00:00:00Z'),
     expectedSources: [],
   });
   assert.equal(alerts[0].kind, 'never_billed');
-  assert.match(alerts[0].title, /6268/);
+  assert.match(alerts[0].title, /5678/);
 });
 
 test('losing the whole aggregator is one alert, not a slow drip', () => {
@@ -164,11 +164,11 @@ const draftResult = (d: ObligationDraft): TriageResult =>
 const bill = (over: Partial<ObligationDraft> = {}): ObligationDraft => ({
   kind: 'bill',
   counterparty: 'icici-amazon-pay',
-  counterpartyLabel: 'ICICI Amazon Pay',
-  amount: 9463.95,
+  counterpartyLabel: 'Gamma Shop',
+  amount: 3210.99,
   currency: 'INR',
   dueDate: '2026-08-30',
-  cardLast4: '9005',
+  cardLast4: '1234',
   evidence: ['sig-a'],
   sourceParser: 'savesage@1',
   ...over,
@@ -191,8 +191,8 @@ test('the same bill from two sources is one row with two sources', () => {
 test('disagreeing sources surface a conflict and the issuer wins', () => {
   const entries = buildLedger(
     [
-      draftResult(bill({ amount: 9463.95, sourceParser: 'savesage@1' })),
-      draftResult(bill({ amount: 9500, evidence: ['sig-b'], sourceParser: 'issuer-fallback@1' })),
+      draftResult(bill({ amount: 3210.99, sourceParser: 'savesage@1' })),
+      draftResult(bill({ amount: 3222, evidence: ['sig-b'], sourceParser: 'issuer-fallback@1' })),
     ],
     { now: new Date('2026-08-24T00:00:00Z') },
   );
@@ -200,7 +200,7 @@ test('disagreeing sources surface a conflict and the issuer wins', () => {
   assert.ok(entries[0].conflict, 'expected the disagreement to be recorded');
   assert.equal(entries[0].conflict!.field, 'amount');
   // The issuer is authoritative about its own bill.
-  assert.equal(entries[0].amount, 9500);
+  assert.equal(entries[0].amount, 3222);
 });
 
 test('worst first: suspended, then overdue, then soonest due', () => {
@@ -230,7 +230,7 @@ test('marking paid removes it from the outstanding total but keeps the row', () 
   const id = obligationId({ kind: 'bill', counterparty: 'icici-amazon-pay', dueDate: '2026-08-30' });
 
   const open = buildLedger(results, { now: new Date('2026-08-24T00:00:00Z') });
-  assert.equal(Math.round(totalOutstanding(open)), 9464);
+  assert.equal(Math.round(totalOutstanding(open)), 3211);
 
   const paid = buildLedger(results, {
     now: new Date('2026-08-24T00:00:00Z'),
@@ -244,13 +244,13 @@ test('marking paid removes it from the outstanding total but keeps the row', () 
 // ------------------------------------------------------------------- cards
 
 const table: CardTable = {
-  cards: [{ last4: '9005', label: 'ICICI Amazon Pay' }],
-  rules: [{ category: 'amazon', cardLast4: '9005', note: '5% back on Amazon' }],
+  cards: [{ last4: '1234', label: 'Gamma Shop' }],
+  rules: [{ category: 'amazon', cardLast4: '1234', note: '5% back on Amazon' }],
 };
 
 test('which card is a lookup in his own table', () => {
   const a = whichCard('amazon', table);
-  assert.equal(a.card?.label, 'ICICI Amazon Pay');
+  assert.equal(a.card?.label, 'Gamma Shop');
   assert.equal(a.because, '5% back on Amazon');
 });
 

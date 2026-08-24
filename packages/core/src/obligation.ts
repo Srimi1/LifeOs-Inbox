@@ -33,8 +33,8 @@ const LEGAL_SUFFIX =
 /**
  * A card's identity is its last four digits, never its label.
  *
- * SaveSage names the same card differently across its templates — "Axis Atlas
- * XXXX 6268" in the statement mail, plain "Axis XXXX 6268" in the reminder.
+ * SaveSage names the same card differently across its templates — "Beta Voyage
+ * XXXX 5678" in the statement mail, plain "Axis XXXX 5678" in the reminder.
  * Keying on the label split one bill into two and inflated the outstanding
  * total by the full amount of every card that had a reminder.
  */
