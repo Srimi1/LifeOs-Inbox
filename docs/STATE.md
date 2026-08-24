@@ -1,6 +1,6 @@
 # Where this project actually stands
 
-Last updated 2026-08-24. Read this first when picking the work back up.
+Last updated 2026-08-24 (rev 2 — Hermes integration). Read this first when picking the work back up.
 
 ## The one-line summary
 
@@ -49,6 +49,31 @@ adding tests:
 
 The fixture corpus is the weak link. It is not a proxy for the mailbox.
 
+## Hermes integration — done locally, not on the VPS
+
+**Hermes is a Python agent at `~/.hermes/hermes-agent`.** It loads skills as
+`SKILL.md` files with YAML frontmatter under `skills/<category>/<name>/`, with an
+optional `references/` folder. It also ships `mcp_serve.py`, `tools/`, `plugins/`
+and `optional-skills/` — the skill route was chosen as the smallest fit.
+
+- **Installed:** `~/.hermes/hermes-agent/skills/productivity/lifeos-inbox/`
+- **Vendored in this repo:** `integrations/hermes/` (source of truth — the copy
+  in Hermes is installed from here, so edit this one)
+- **Deploy script:** `scripts/deploy-to-hermes.sh [user@host]`
+
+The skill is mostly *reporting discipline*, not command documentation: preserve
+worst-first ordering, quote figures exactly, never claim a bill is paid, never
+offer to pay, always surface the canary next to a total, and repeat the honest
+limits when relevant.
+
+**The VPS was not reached.** `194.164.151.25:22` times out from this machine —
+wrong address, non-standard port, firewall, or a key that is not present. The
+deploy script exists and is idempotent, but nobody has run it against the server.
+
+Note for whoever does: `npm run auth` opens a browser and listens on
+`localhost:8787`, so **OAuth cannot complete on a headless VPS.** Run it on a
+machine with a browser, then `scp .tokens.json` across. Never into git.
+
 ## Decided
 
 - **This is a skill, not an app.** ~5% of the repo is presentation. The
@@ -69,11 +94,12 @@ The fixture corpus is the weak link. It is not a proxy for the mailbox.
 2. **Move the repo out of iCloud Drive.** `.git/index 2` already exists — iCloud
    has conflict-copied the git index once. `.tokens.json` would also sync Gmail
    credentials to Apple. `git clone` to `~/dev/lifeos-inbox`.
-3. **Then** the tool surface for an agent runtime, and a scheduler for the brief.
+3. **Run `scripts/deploy-to-hermes.sh` against the VPS** once SSH works, then a
+   scheduler (systemd or pm2 running `npm run poll`) so sync keeps going.
 
 ## Open questions for the owner
 
-- What is "Hermes Agent"? The integration shape depends on whether it is a
-  runtime you control, a hosted product, or a concept.
+- **Working SSH details for the Hostinger VPS.** Port 22 on 194.164.151.25 times
+  out; without a reachable host the deploy script cannot be run for you.
 - Should this repo stay public? The rulepack still reveals which banks and
   services the mailbox uses — far lower stakes than card data, but a real signal.
