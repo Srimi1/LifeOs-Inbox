@@ -15,7 +15,10 @@
     "backfill": "node --env-file-if-exists=.env apps/worker/src/index.ts backfill",
     "poll": "node --env-file-if-exists=.env apps/worker/src/index.ts poll",
     "triage": "node --env-file-if-exists=.env apps/worker/src/index.ts triage",
-    "status": "node --env-file-if-exists=.env apps/worker/src/index.ts status"
+    "status": "node --env-file-if-exists=.env apps/worker/src/index.ts status",
+    "brief": "node --env-file-if-exists=.env apps/worker/src/index.ts brief",
+    "brief:dry": "node --env-file-if-exists=.env apps/worker/src/index.ts brief --dry",
+    "brief:demo": "node eval/brief.ts --html"
   },
   "license": "MIT",
   "workspaces": [

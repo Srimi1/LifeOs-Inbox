@@ -23,3 +23,5 @@ eval/fixtures/*
 .DS_Store
 *.log
 eval/_scratch/
+# Rendered briefs contain real balances, due dates and counterparties.
+eval/_out/

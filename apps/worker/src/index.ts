@@ -17,6 +17,13 @@ import {
 } from '../../../packages/core/src/store.ts';
 import { normalizeEmail } from '../../../packages/core/src/signal.ts';
 import { triage } from '../../../packages/core/src/triage.ts';
+import { buildBriefFacts } from '../../../packages/core/src/brief/facts.ts';
+import {
+  renderText,
+  renderHtml,
+  renderSubject,
+} from '../../../packages/core/src/brief/render.ts';
+import { deliver } from './notify.ts';
 
 const BACKFILL_DAYS = 30;
 const POLL_MS = 5 * 60 * 1000;
@@ -173,16 +180,65 @@ function cmdTriage(): void {
   console.log('');
 }
 
+/**
+ * Assemble and send the daily brief.
+ *
+ * `--dry` prints without delivering. Note the brief is generated even when
+ * sync is stale or broken: it then leads with a [LifeOS ALERT] and says the
+ * contents may be out of date. Suppressing it on failure would be the worst
+ * option available — silence reads exactly like a quiet day.
+ */
+async function cmdBrief(dry: boolean): Promise<void> {
+  const events = loadRawEvents();
+  if (!events.length) {
+    log('nothing stored yet — run backfill first');
+    return;
+  }
+
+  const state = readState();
+  const results = events.map((e) => triage(normalizeEmail(e.payload)));
+  const facts = buildBriefFacts(results, { state });
+
+  const subject = renderSubject(facts);
+  const text = renderText(facts);
+
+  if (dry) {
+    console.log(`\nSubject: ${subject}\n${'-'.repeat(72)}`);
+    console.log(text);
+    console.log('');
+    return;
+  }
+
+  const to = process.env.BRIEF_TO ?? state.email;
+  if (!to) {
+    log('no recipient — set BRIEF_TO in .env, or run auth first');
+    return;
+  }
+
+  const result = await deliver({ to, subject, text, html: renderHtml(facts) });
+  if (!result.ok) {
+    log(`delivery FAILED via ${result.via}: ${result.error}`);
+    process.exitCode = 1;
+    return;
+  }
+  log(
+    result.via === 'resend'
+      ? `brief sent to ${to} (${result.id})`
+      : `no RESEND_API_KEY — brief written to ${result.path}`,
+  );
+}
+
 const cmd = process.argv[2];
 try {
   if (cmd === 'auth') await cmdAuth();
   else if (cmd === 'backfill') await cmdBackfill();
   else if (cmd === 'poll') await cmdPoll();
   else if (cmd === 'triage') cmdTriage();
+  else if (cmd === 'brief') await cmdBrief(process.argv.includes('--dry'));
   else if (cmd === 'status') {
     console.log(JSON.stringify({ ...readState(), connected: Boolean(loadTokens()) }, null, 2));
   } else {
-    console.log('usage: auth | backfill | poll | triage | status');
+    console.log('usage: auth | backfill | poll | triage | brief [--dry] | status');
     process.exitCode = 1;
   }
 } catch (err) {

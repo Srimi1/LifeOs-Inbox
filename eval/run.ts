@@ -1,13 +1,16 @@
 /**
- * Week-1 acceptance run.
+ * Acceptance run for weeks 1-2.
  *
  *   node eval/run.ts            summary
  *   node eval/run.ts --misses   also list every signal Tier 0 could not resolve
  *
- * The bar the plan set for week 1: the seed rulepack alone classifies >= 60% of
- * real volume with no model involved, and HDFC's three subdomains split
- * correctly. Everything else here is there to stop a green number from hiding a
- * wrong one.
+ * Week 1's bar: the seed rulepack alone classifies >= 60% of real volume with
+ * no model involved, and HDFC's three subdomains split correctly.
+ *
+ * Week 2's bar: the brief collapses the CI streak, surfaces both live
+ * suspensions, and prints no figure that did not come from the facts object.
+ *
+ * Everything else here exists to stop a green number from hiding a wrong one.
  */
 import { readFileSync, existsSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
@@ -18,6 +21,9 @@ import { triage } from '../packages/core/src/triage.ts';
 import { primaryAmount } from '../packages/core/src/extract/amount.ts';
 import { primaryDueDate } from '../packages/core/src/extract/date.ts';
 import { RULEPACK_VERSION } from '../packages/core/src/rulepack/index.ts';
+import { buildBriefFacts } from '../packages/core/src/brief/facts.ts';
+import { renderText, renderSubject, money } from '../packages/core/src/brief/render.ts';
+import { describeStreakGroup } from '../packages/core/src/brief/streaks.ts';
 
 const here = dirname(fileURLToPath(import.meta.url));
 
@@ -218,9 +224,91 @@ check(
   `${correct.length}/${labelled.length} (${((correct.length / labelled.length) * 100).toFixed(1)}%)`,
 );
 
+
+// ============================ week 2: the daily brief ========================
+// `now` is pinned to the capture date so the brief's relative dates are stable.
+const briefNow = new Date(`${raw.capturedAt ?? '2026-08-24'}T01:30:00Z`);
+const facts = buildBriefFacts(
+  results.map((r) => r.result),
+  { now: briefNow, state: { lastSyncAt: briefNow.toISOString(), lastSyncOk: true } },
+);
+const briefText = renderText(facts);
+
+// 16 identical CI emails must become one line naming both workflows.
+const streakLine = describeStreakGroup(facts.streaks);
+check(
+  'CI streak collapses to one line',
+  facts.streaks.length >= 2 &&
+    /github-metrics/.test(streakLine) &&
+    /refresh-contributors-wall/.test(streakLine) &&
+    /8 days/.test(streakLine),
+  streakLine || 'no streaks detected',
+);
+
+// Both live suspensions must reach Act Now, not sit in a category bucket.
+const actTitles = facts.actNow.map((a) => a.title).join(' | ');
+check(
+  'Both suspensions surface in Act Now',
+  /AWS imminent suspension/i.test(actTitles) && /X subscription suspended/i.test(actTitles),
+  actTitles.slice(0, 110) || 'Act Now is empty',
+);
+
+check(
+  'Dead channel leads Act Now with a bounce count',
+  facts.actNow[0]?.kind === 'dead_channel' &&
+    /support@github\.com/.test(facts.actNow[0].title) &&
+    (facts.deadChannels[0]?.bounceCount ?? 0) >= 3,
+  `${facts.actNow[0]?.title ?? 'none'} · ${facts.deadChannels[0]?.bounceCount ?? 0} bounces`,
+);
+
+check(
+  'Bill total equals the sum of its parts',
+  Math.abs(facts.billTotal - facts.bills.reduce((n, b) => n + (b.amount ?? 0), 0)) < 0.005,
+  `${money(facts.billTotal)} across ${facts.bills.length} bills`,
+);
+
+// The invariant that makes a hallucinated figure structurally impossible:
+// every rupee amount printed in the brief must already exist in the facts.
+const printed = [...briefText.matchAll(/₹[\d,]+(?:\.\d{2})?/g)].map((m) => m[0]);
+const allowed = new Set(
+  [
+    facts.billTotal,
+    ...facts.bills.map((b) => b.amount),
+    ...facts.actNow.map((a) => a.amount),
+  ]
+    .filter((n): n is number => typeof n === 'number')
+    .map((n) => money(n)),
+);
+const invented = printed.filter((p) => !allowed.has(p));
+check(
+  'Every figure in the brief traces to the facts',
+  invented.length === 0,
+  invented.length === 0
+    ? `${printed.length} amounts, all derived`
+    : `INVENTED: ${invented.join(', ')}`,
+);
+
+// A completed payment receipt is not a deadline.
+check(
+  'Past-tense receipts stay out of Deadlines',
+  !facts.deadlines.some((d) => /placed successfully|payment successful|delivered|shipped/i.test(d.title)),
+  facts.deadlines.map((d) => d.title.slice(0, 42)).join(' | ') || 'no deadlines',
+);
+
+// Stale sync must shout rather than render a confident, silently old brief.
+const staleFacts = buildBriefFacts(results.map((r) => r.result), {
+  now: briefNow,
+  state: { lastSyncAt: new Date(briefNow.getTime() - 26 * 3600_000).toISOString(), lastSyncOk: true },
+});
+check(
+  'Stale sync raises [LifeOS ALERT]',
+  Boolean(staleFacts.sync.alert) && renderSubject(staleFacts).startsWith('[LifeOS ALERT]'),
+  renderSubject(staleFacts).slice(0, 70),
+);
+
 // ------------------------------------------------------------------ report
 console.log('');
-console.log(C.bold('  LifeOS Inbox — Week 1 acceptance') + C.dim(`   ${RULEPACK_VERSION}`));
+console.log(C.bold('  LifeOS Inbox — acceptance') + C.dim(`   weeks 1-2 · ${RULEPACK_VERSION}`));
 console.log(C.dim(`  ${results.length} messages · ${fixturePath.split('/').pop()} · captured ${raw.capturedAt ?? 'n/a'}`));
 console.log('');
 
