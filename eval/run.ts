@@ -9,7 +9,7 @@
  * correctly. Everything else here is there to stop a green number from hiding a
  * wrong one.
  */
-import { readFileSync } from 'node:fs';
+import { readFileSync, existsSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
 
@@ -20,7 +20,24 @@ import { primaryDueDate } from '../packages/core/src/extract/date.ts';
 import { RULEPACK_VERSION } from '../packages/core/src/rulepack/index.ts';
 
 const here = dirname(fileURLToPath(import.meta.url));
-const raw = JSON.parse(readFileSync(join(here, 'fixtures/inbox-sample.json'), 'utf8'));
+
+/**
+ * The real fixture set is his own mail and is gitignored, so fall back to the
+ * synthetic sample that ships with the repo. Pass a path to use another set.
+ */
+const explicit = process.argv.find((a) => a.endsWith('.json'));
+const candidates = [
+  explicit,
+  join(here, 'fixtures/inbox-sample.json'),
+  join(here, 'fixtures/example.sample.json'),
+].filter((p): p is string => Boolean(p));
+
+const fixturePath = candidates.find((p) => existsSync(p));
+if (!fixturePath) {
+  console.error('No fixture file found in eval/fixtures/.');
+  process.exit(1);
+}
+const raw = JSON.parse(readFileSync(fixturePath, 'utf8'));
 
 interface Fixture extends RawEmail {
   expect?: {
@@ -204,7 +221,7 @@ check(
 // ------------------------------------------------------------------ report
 console.log('');
 console.log(C.bold('  LifeOS Inbox — Week 1 acceptance') + C.dim(`   ${RULEPACK_VERSION}`));
-console.log(C.dim(`  ${results.length} real messages captured ${raw.capturedAt}`));
+console.log(C.dim(`  ${results.length} messages · ${fixturePath.split('/').pop()} · captured ${raw.capturedAt ?? 'n/a'}`));
 console.log('');
 
 for (const c of checks) {

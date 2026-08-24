@@ -2,19 +2,26 @@
   "name": "lifeos-inbox",
   "version": "0.1.0",
   "private": true,
-  "description": "Triage your life-admin inbox: bills, renewals and tickets classified into a closed taxonomy with evidence-backed extraction.",
-  "license": "MIT",
   "type": "module",
+  "description": "A triage-and-decision layer above your inboxes. It extracts the obligation hiding inside each signal and holds it until it is closed.",
+  "engines": {
+    "node": ">=22.18"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "eval": "node eval/run.ts",
+    "eval:misses": "node eval/run.ts --misses",
+    "auth": "node --env-file-if-exists=.env apps/worker/src/index.ts auth",
+    "backfill": "node --env-file-if-exists=.env apps/worker/src/index.ts backfill",
+    "poll": "node --env-file-if-exists=.env apps/worker/src/index.ts poll",
+    "triage": "node --env-file-if-exists=.env apps/worker/src/index.ts triage",
+    "status": "node --env-file-if-exists=.env apps/worker/src/index.ts status"
+  },
+  "license": "MIT",
   "workspaces": [
     "packages/*",
     "apps/*"
   ],
-  "engines": {
-    "node": ">=22"
-  },
-  "scripts": {
-    "typecheck": "tsc --noEmit"
-  },
   "devDependencies": {
     "@types/node": "^26.2.0",
     "typescript": "^5"

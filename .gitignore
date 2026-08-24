@@ -6,8 +6,14 @@ coverage/
 .env.*
 !.env.example
 
-# Personal owner profile — never commit (see owner.example.json)
+# OAuth refresh token — grants ongoing read access to the whole mailbox
+.tokens.json
+
+# Personal owner profile: card tails and name (see owner.example.json)
 owner.json
+
+# Ingested mail. The corpus never leaves this machine.
+data/
 
 # Real mail fixtures contain PII — local only. Ship synthetic samples instead.
 eval/fixtures/*
