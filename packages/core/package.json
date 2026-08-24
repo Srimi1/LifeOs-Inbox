@@ -1,0 +1,10 @@
+{
+  "name": "@lifeos/core",
+  "version": "0.1.0",
+  "description": "Signal envelope, closed taxonomy, and evidence-backed extractors for LifeOS Inbox.",
+  "license": "MIT",
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  }
+}

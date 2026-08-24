@@ -1,0 +1,6 @@
+{
+  "_comment": "Copy to owner.json (gitignored) and fill in. The ownership guard uses this to decide whether a financial signal is yours. With no owner.json the guard fails closed and flags financial mail as not-yours — that is deliberate.",
+  "cardLast4": ["1234", "5678"],
+  "nameTokens": ["firstname", "lastname"],
+  "addresses": ["you@example.com"]
+}

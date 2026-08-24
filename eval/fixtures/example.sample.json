@@ -1,0 +1,41 @@
+{
+  "_comment": "Synthetic schema example for eval fixtures. Real fixture files (e.g. inbox-sample.json) contain personal mail and are gitignored — never commit them.",
+  "messages": [
+    {
+      "id": "ex-001",
+      "sender": "Card Services <noreply@cards.example-bank.in>",
+      "subject": "Your e-statement for HDFC Example Credit Card",
+      "snippet": "Dear Your Name, Total amount due Rs.361.00 Payment due date 05-09-26 Card ending 1234",
+      "date": "2026-08-20T06:30:00Z",
+      "labelIds": ["INBOX"],
+      "expect": { "category": "bill", "amount": 361, "dueDate": "2026-09-05" }
+    },
+    {
+      "id": "ex-002",
+      "sender": "Payments <receipts@pay-gateway.example>",
+      "subject": "Payment of Rs.499 to Example SaaS Paid Successfully",
+      "snippet": "Example SaaS Rs. 499 Paid Successfully pay_ExAmPlE123 Method card XXXX1234",
+      "date": "2026-08-21T10:00:00Z",
+      "labelIds": ["INBOX"],
+      "expect": { "category": "renewal", "amount": 499 }
+    },
+    {
+      "id": "ex-003",
+      "sender": "Mailer Daemon <mailer-daemon@googlemail.com>",
+      "subject": "Delivery Status Notification (Failure)",
+      "snippet": "Technical details of permanent failure: message to help@dead-support.example Address not found",
+      "date": "2026-08-22T08:15:00Z",
+      "labelIds": ["INBOX"],
+      "expect": { "category": "bounce" }
+    },
+    {
+      "id": "ex-004",
+      "sender": "Big Sale <promo@shop-mall.example>",
+      "subject": "Unlock ₹1 Lakh in minutes!!! 70% off today only",
+      "snippet": "Offer valid till 31-12-26 Shop now and save big on everything",
+      "date": "2026-08-23T09:00:00Z",
+      "labelIds": ["INBOX", "PROMOTIONS"],
+      "expect": { "category": "promo", "action": "archive" }
+    }
+  ]
+}

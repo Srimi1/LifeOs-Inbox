@@ -1,0 +1,22 @@
+{
+  "name": "lifeos-inbox",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Triage your life-admin inbox: bills, renewals and tickets classified into a closed taxonomy with evidence-backed extraction.",
+  "license": "MIT",
+  "type": "module",
+  "workspaces": [
+    "packages/*",
+    "apps/*"
+  ],
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit"
+  },
+  "devDependencies": {
+    "@types/node": "^26.2.0",
+    "typescript": "^5"
+  }
+}

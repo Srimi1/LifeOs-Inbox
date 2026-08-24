@@ -1,0 +1,19 @@
+node_modules/
+dist/
+coverage/
+
+.env
+.env.*
+!.env.example
+
+# Personal owner profile — never commit (see owner.example.json)
+owner.json
+
+# Real mail fixtures contain PII — local only. Ship synthetic samples instead.
+eval/fixtures/*
+!eval/fixtures/.gitkeep
+!eval/fixtures/example.sample.json
+
+.DS_Store
+*.log
+eval/_scratch/
