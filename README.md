@@ -133,6 +133,23 @@ Personal configuration (`owner.json`, `cards.json`), ingested mail (`data/`),
 credentials and recorded model responses are all gitignored and never leave the
 machine. See `*.example.json` for the shapes.
 
+## Using it from an agent
+
+The capability surface is exposed to a [Hermes](https://github.com/Srimi1/LifeOs-Inbox) agent
+as a skill. `integrations/hermes/SKILL.md` teaches the agent when to reach for
+LifeOS, which commands answer which question, and — importantly — how to report
+the result honestly: quote its figures exactly, never claim a bill is paid
+(LifeOS sees mail, not bank accounts), and always surface the canary alongside a
+total, because a blind ledger looks exactly like a month with no bills.
+
+```bash
+./scripts/deploy-to-hermes.sh                   # local Hermes
+./scripts/deploy-to-hermes.sh root@your.vps.ip  # over SSH
+```
+
+The script is idempotent, checks the Node version, never overwrites an existing
+`owner.json`/`cards.json`, and never moves credentials.
+
 ## Design commitments
 
 These are load-bearing, not preferences:
