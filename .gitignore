@@ -12,6 +12,9 @@ coverage/
 # Personal owner profile: card tails and name (see owner.example.json)
 owner.json
 
+# Your card table and reward rules (see cards.example.json)
+cards.json
+
 # Ingested mail. The corpus never leaves this machine.
 data/
 

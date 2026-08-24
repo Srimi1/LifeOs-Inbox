@@ -27,6 +27,8 @@ import { describeStreakGroup } from '../packages/core/src/brief/streaks.ts';
 import { redact, luhnValid, verhoeffValid } from '../packages/core/src/intelligence/redact.ts';
 import { classifySignal } from '../packages/core/src/intelligence/classify.ts';
 import { cassetteCount, resolveMode } from '../packages/core/src/intelligence/client.ts';
+import { buildMoneyView } from '../packages/module-money/src/index.ts';
+import { loadOwner } from '../packages/core/src/ownership.ts';
 
 const here = dirname(fileURLToPath(import.meta.url));
 
@@ -380,9 +382,69 @@ check(
   `${flooredBefore} signals held at today+ by floors, unreachable by any model`,
 );
 
+
+// =========================== week 4: the money ledger =======================
+const owned = loadOwner().cardLast4;
+const moneyView = buildMoneyView(results.map((r) => r.result), { now: briefNow, ownedCardLast4: owned });
+
+check(
+  'Every card bill lands on the ledger, worst first',
+  moneyView.bills.length >= 3 &&
+    moneyView.bills.filter((b) => b.dueDate).every((b, i, arr) => i === 0 || (arr[i - 1].daysUntil ?? 0) <= (b.daysUntil ?? 0)),
+  moneyView.bills.map((b) => `${b.label.split(' ')[0]}:${b.daysUntil ?? '—'}d`).join(' · '),
+);
+
+check(
+  'Outstanding total matches the bills on screen',
+  Math.abs(moneyView.total - moneyView.bills.filter((b) => b.status !== 'paid').reduce((n, b) => n + (b.amount ?? 0), 0)) < 0.005,
+  `₹${moneyView.total.toFixed(2)} across ${moneyView.bills.length} bills`,
+);
+
+// A single receipt is not a subscription. His repeated gift-card purchases
+// vary in amount and cluster on one day; inferring a monthly bill from them
+// would put a fictional obligation in front of him.
+check(
+  'Repeated gift-card purchases are not read as a subscription',
+  !moneyView.inferred.some((i) => /maximize/i.test(i.label)),
+  moneyView.inferred.length
+    ? moneyView.inferred.map((i) => `${i.label.slice(0, 20)}:${i.cadence}`).join(' · ')
+    : 'no recurring charges inferred from this corpus',
+);
+
+check(
+  'Both suspended services reach the ledger as at-risk',
+  moneyView.atRisk.length >= 2 &&
+    moneyView.atRisk.some((e) => /amazonaws/.test(e.counterparty)) &&
+    moneyView.atRisk.some((e) => /google/.test(e.counterparty)),
+  moneyView.atRisk.map((e) => `${e.label}:${e.serviceStatus}`).join(' · ') || 'none',
+);
+
+// The canary must be quiet on a healthy corpus, or it will be ignored when it
+// matters. The only alert allowed here is the card that genuinely never bills.
+const noisy = moneyView.alerts.filter((a) => a.kind !== 'never_billed');
+check(
+  'Canary stays quiet while bills are arriving',
+  noisy.length === 0,
+  moneyView.alerts.length ? moneyView.alerts.map((a) => a.kind).join(', ') : 'silent',
+);
+
+// And it must fire the moment the aggregator goes dark — the failure that
+// otherwise looks exactly like a month with no bills.
+const withoutSaveSage = results
+  .filter((r) => !r.fixture.sender.includes('savesage'))
+  .map((r) => r.result);
+const blindMoney = buildMoneyView(withoutSaveSage, { now: briefNow, ownedCardLast4: owned });
+check(
+  'Killing the bill source fires the canary',
+  blindMoney.total === 0 &&
+    blindMoney.alerts.some((a) => a.kind === 'source_silent') &&
+    blindMoney.alerts.filter((a) => a.kind === 'never_billed').length >= 3,
+  `total ₹0 · ${blindMoney.alerts.map((a) => a.kind).join(', ')}`,
+);
+
 // ------------------------------------------------------------------ report
 console.log('');
-console.log(C.bold('  LifeOS Inbox — acceptance') + C.dim(`   weeks 1-3 · ${RULEPACK_VERSION}`));
+console.log(C.bold('  LifeOS Inbox — acceptance') + C.dim(`   weeks 1-4 · ${RULEPACK_VERSION}`));
 console.log(C.dim(`  ${results.length} messages · ${fixturePath.split('/').pop()} · captured ${raw.capturedAt ?? 'n/a'}`));
 console.log('');
 

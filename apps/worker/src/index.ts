@@ -35,6 +35,8 @@ import {
   correctionRate,
 } from '../../../packages/core/src/intelligence/overrides.ts';
 import { CATEGORIES, URGENCIES, ACTIONS } from '../../../packages/core/src/taxonomy.ts';
+import { loadOwner } from '../../../packages/core/src/ownership.ts';
+import { buildMoneyView, markPaid, decide, whichCard, loadOverlay } from '../../../packages/module-money/src/index.ts';
 import type { Category, Urgency, Action } from '../../../packages/core/src/taxonomy.ts';
 
 const BACKFILL_DAYS = 30;
@@ -338,6 +340,57 @@ function cmdRules(): void {
   console.log('');
 }
 
+
+const inr = new Intl.NumberFormat('en-IN', {
+  style: 'currency', currency: 'INR', minimumFractionDigits: 2, maximumFractionDigits: 2,
+});
+
+/** Every bill and renewal owed, worst first, with the canary underneath. */
+function cmdMoney(): void {
+  const events = loadRawEvents();
+  if (!events.length) return log('nothing stored yet — run backfill first');
+
+  const results = events.map((e) => triage(normalizeEmail(e.payload)));
+  const view = buildMoneyView(results, { overlay: loadOverlay(), ownedCardLast4: loadOwner().cardLast4 });
+
+  console.log('');
+  if (!view.bills.length) console.log('  no bills found');
+  for (const b of view.bills) {
+    const flag = b.status === 'overdue' ? '!' : b.status === 'due_soon' ? '•' : b.status === 'paid' ? '✓' : ' ';
+    const when = b.dueDate
+      ? (b.daysUntil ?? 0) < 0 ? `${-(b.daysUntil ?? 0)}d overdue` : `in ${b.daysUntil}d`
+      : 'amount in PDF';
+    console.log(
+      `  ${flag} ${b.label.padEnd(34)}${b.cardLast4 ? ` ····${b.cardLast4}` : '        '}` +
+      `  ${(typeof b.amount === 'number' ? inr.format(b.amount) : '—').padStart(12)}  ${when}`,
+    );
+    if (b.conflict) console.log(`      conflict on ${b.conflict.field}: ${b.conflict.values.join(' vs ')}`);
+    console.log(`      ${b.id}`);
+  }
+  if (view.bills.length) console.log(`\n  ${inr.format(view.total)} outstanding`);
+
+  if (view.atRisk.length) {
+    console.log('\n  AT RISK');
+    for (const r of view.atRisk) console.log(`  ! ${r.label.padEnd(24)} ${r.serviceStatus}`);
+  }
+
+  if (view.inferred.length) {
+    console.log('\n  RECURRING');
+    for (const i of view.inferred) {
+      console.log(`    ${i.label.slice(0, 30).padEnd(30)} ${inr.format(i.amount)} ${i.cadence} · next ${i.nextExpected}`);
+    }
+  }
+
+  console.log('\n  CANARY');
+  if (!view.alerts.length) console.log('    quiet — every known card is billing on schedule');
+  for (const a of view.alerts) {
+    console.log(`    ${a.severity === 'alert' ? 'ALERT' : 'warn '} ${a.title}`);
+  }
+  const blind = view.alerts.some((a) => a.kind === 'source_silent' || a.kind === 'missing_bill');
+  if (blind) console.log('\n  The total above is not trustworthy while the canary is firing.');
+  console.log('');
+}
+
 const cmd = process.argv[2];
 try {
   if (cmd === 'auth') await cmdAuth();
@@ -348,6 +401,25 @@ try {
   else if (cmd === 'review') await cmdReview();
   else if (cmd === 'correct') await cmdCorrect(process.argv.slice(3));
   else if (cmd === 'rules') cmdRules();
+  else if (cmd === 'money') cmdMoney();
+  else if (cmd === 'paid') {
+    const id = process.argv[3];
+    if (!id) log('usage: paid <obligationId>   (ids are shown by `npm run money`)');
+    else { markPaid(id); log(`marked ${id} paid — it stays on the ledger as history`); }
+  }
+  else if (cmd === 'keep' || cmd === 'cancel') {
+    const who = process.argv[3];
+    if (!who) log(`usage: ${cmd} <counterparty>`);
+    else { decide(who, cmd as 'keep' | 'cancel'); log(`${who}: ${cmd}`); }
+  }
+  else if (cmd === 'card') {
+    const q = process.argv.slice(3).join(' ');
+    const a = whichCard(q);
+    console.log('');
+    console.log(a.card ? `  ${a.card.label} ····${a.card.last4}` : '  no card');
+    console.log(`  ${a.because}`);
+    console.log('');
+  }
   else if (cmd === 'accept') {
     const sender = process.argv[3];
     const proposal = sender ? loadPromotedRules().find((r) => r.senderAddr === sender) : undefined;
@@ -371,7 +443,8 @@ try {
   } else {
     console.log(
       'usage: auth | backfill | poll | triage | brief [--dry] | review |\n' +
-      '       correct <id> <category> [urgency] [action] | rules | accept <sender> | revoke <sender> | status',
+      '       correct <id> <category> [urgency] [action] | rules | accept <sender> | revoke <sender> |\n' +
+      '       money | paid <id> | keep <who> | cancel <who> | card <category> | status',
     );
     process.exitCode = 1;
   }

@@ -25,7 +25,12 @@
     "rules": "node --env-file-if-exists=.env apps/worker/src/index.ts rules",
     "accept": "node --env-file-if-exists=.env apps/worker/src/index.ts accept",
     "revoke": "node --env-file-if-exists=.env apps/worker/src/index.ts revoke",
-    "demo:correction": "node eval/correction-demo.ts"
+    "demo:correction": "node eval/correction-demo.ts",
+    "demo:money": "node eval/money.ts",
+    "demo:canary": "node eval/money.ts --kill-savesage",
+    "money": "node --env-file-if-exists=.env apps/worker/src/index.ts money",
+    "paid": "node --env-file-if-exists=.env apps/worker/src/index.ts paid",
+    "card": "node --env-file-if-exists=.env apps/worker/src/index.ts card"
   },
   "license": "MIT",
   "workspaces": [

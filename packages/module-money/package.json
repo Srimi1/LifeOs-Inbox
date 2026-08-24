@@ -1,0 +1,8 @@
+{
+  "name": "@lifeos/module-money",
+  "version": "0.1.0",
+  "description": "Money Ledger: bills, renewals, cycle canary and card guidance.",
+  "license": "MIT",
+  "type": "module",
+  "exports": { ".": "./src/index.ts" }
+}

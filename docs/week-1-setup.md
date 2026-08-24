@@ -141,6 +141,7 @@ npm run demo:correction                     # watch the loop end to end
 | Postgres schema (JSONL store mirrors it for now) | `packages/core/src/db/schema.sql` |
 | Daily brief: facts, streak collapse, templates, delivery | `packages/core/src/brief/` |
 | Redaction, model tiers, corrections, rule promotion, audit | `packages/core/src/intelligence/` |
+| Money Ledger: obligations, canary, renewal inference, cards | `packages/module-money/` |
 | Acceptance eval on 126 real messages | `eval/run.ts` |
 
 ```bash
@@ -152,5 +153,23 @@ npm run auth        # after step 1
 npm run backfill    # last 30 days
 npm run triage      # what the pipeline makes of it
 npm run brief:dry   # the morning brief, printed
+npm run money       # every bill and renewal owed, worst first
+npm run demo:canary # drop the bill source and watch the canary fire
 npm run poll        # every 5 minutes
 ```
+
+### Your card table
+
+`cards.json` lists the five cards found in your own mail. Its `rules` list is
+**empty on purpose** — LifeOS will not invent reward advice. You run gift-card
+arbitrage across four loyalty programmes; any table shipped here would be worse
+than the one already in your head, and a stale recommendation would poison
+trust in the whole module.
+
+Add a rule when you want it surfaced at the moment of decision:
+
+```json
+{ "category": "dining", "cardLast4": "9005", "note": "5% back on online food" }
+```
+
+Then `npm run card dining` answers from your own rule, and says so.

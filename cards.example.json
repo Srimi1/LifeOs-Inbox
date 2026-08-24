@@ -1,0 +1,10 @@
+{
+  "_comment": "Copy to cards.json. LifeOS reads this and never writes it — no reward rule is ever inferred, only displayed. Add a rule when you decide one; leave it out when you have not.",
+  "cards": [
+    { "last4": "1234", "label": "Issuer Card Name", "issuer": "HDFC", "creditLimit": 100000, "statementDay": 16 }
+  ],
+  "rules": [
+    { "category": "amazon", "cardLast4": "1234", "note": "5% back via Amazon Pay" },
+    { "category": "dining", "cardLast4": "1234" }
+  ]
+}

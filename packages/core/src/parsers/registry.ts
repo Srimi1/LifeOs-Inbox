@@ -82,9 +82,9 @@ export const savesage: Parser = (sig) => {
 };
 
 /**
- * Razorpay receipts. Structured, high volume, and the seed for the renewal
- * ledger: a merchant that charges the same card on a cadence is a subscription
- * whether or not it ever calls itself one.
+ * Razorpay receipts. Structured and high volume — they are the raw material
+ * the money module uses to spot a recurring charge, but a receipt on its own
+ * says only that money moved. See the note at the return.
  */
 export const razorpay: Parser = (sig) => {
   const t = sig.text;
@@ -110,23 +110,11 @@ export const razorpay: Parser = (sig) => {
     vpa ? evidenced(t, 'vpa', vpa[0], vpa.index!, { valueText: vpa[0].toLowerCase() }, V) : null,
   ].filter((e): e is Extraction => e !== null);
 
-  return {
-    extractions,
-    obligation: merchant
-      ? {
-          kind: 'renewal',
-          counterparty: normaliseCounterparty(merchant),
-          counterpartyLabel: merchant,
-          amount: amount ?? undefined,
-          currency: 'INR',
-          cardLast4: tail?.[1],
-          decision: 'undecided',
-          serviceStatus: 'ok',
-          evidence: [sig.externalId],
-          sourceParser: V,
-        }
-      : undefined,
-  };
+  // Deliberately no obligation. A single receipt is money that already moved,
+  // not something owed — minting a renewal from one charge put four fictional
+  // subscriptions in the ledger, one per gift-card purchase. Recurrence is
+  // decided by the money module from the pattern across receipts, never here.
+  return { extractions };
 };
 
 /**
