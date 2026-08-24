@@ -58,7 +58,7 @@ Format due_date as YYYY-MM-DD. Report amount as digits only, no currency symbol.
 
 ## Placeholders
 
-The message has been redacted before reaching you. Tokens like <CARD_****9005>,
+The message has been redacted before reaching you. Tokens like <CARD_****1234>,
 <ACCT_1a2b3c4d>, <TAXID> and <PHONE_9f8e7d6c> stand in for real identifiers.
 Treat them as opaque and stable: the same token always means the same thing.
 Never try to reconstruct what is behind one.

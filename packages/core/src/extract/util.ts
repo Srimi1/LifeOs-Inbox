@@ -46,11 +46,19 @@ export function dedupeExtractions(list: Extraction[]): Extraction[] {
 }
 
 /** Run a global regex and hand each match to a builder, dropping the rejects. */
+/**
+ * A ceiling on what any single extractor will look at. Bodies longer than this
+ * are marketing footers and quoted history, not fields — and an unbounded
+ * input is half of every catastrophic-backtracking incident.
+ */
+export const MAX_SCAN_CHARS = 20_000;
+
 export function scan(
   text: string,
   re: RegExp,
   build: (m: RegExpExecArray) => Extraction | null,
 ): Extraction[] {
+  if (text.length > MAX_SCAN_CHARS) text = text.slice(0, MAX_SCAN_CHARS);
   const out: Extraction[] = [];
   const rx = new RegExp(re.source, re.flags.includes('g') ? re.flags : re.flags + 'g');
   let m: RegExpExecArray | null;

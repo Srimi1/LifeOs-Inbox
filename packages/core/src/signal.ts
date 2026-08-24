@@ -40,6 +40,13 @@ export interface Extraction {
   currency?: string;
   evidence: string;
   offset: number;
+  /**
+   * Which text `offset` indexes into. Deterministic extractors read the signal
+   * itself; a model only ever sees the redacted, truncated copy, so its spans
+   * cannot be assumed to line up with the original — and where the evidence
+   * quotes a placeholder, no original span exists at all.
+   */
+  provenance?: 'signal' | 'redacted';
   method: Method;
   extractorVersion: string;
 }

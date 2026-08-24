@@ -51,12 +51,45 @@ export function writeState(patch: Partial<SyncState>): SyncState {
   return next;
 }
 
+export interface LoadResult {
+  events: RawEvent[];
+  /** Lines that could not be parsed, by line number. Never silently skipped. */
+  corrupt: number[];
+}
+
+/**
+ * A partially-written line — an interrupted poll, a synced-mid-write file —
+ * used to throw and take the entire corpus with it. One bad line now costs one
+ * message, and says so, because a store that refuses to open is worse than a
+ * store that is one message short.
+ */
+export function loadRawEventsSafe(): LoadResult {
+  if (!existsSync(RAW_PATH)) return { events: [], corrupt: [] };
+  const events: RawEvent[] = [];
+  const corrupt: number[] = [];
+  const lines = readFileSync(RAW_PATH, 'utf8').split('\n');
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i];
+    if (!line.trim()) continue;
+    try {
+      events.push(JSON.parse(line) as RawEvent);
+    } catch {
+      corrupt.push(i + 1);
+    }
+  }
+  return { events, corrupt };
+}
+
 export function loadRawEvents(): RawEvent[] {
-  if (!existsSync(RAW_PATH)) return [];
-  return readFileSync(RAW_PATH, 'utf8')
-    .split('\n')
-    .filter(Boolean)
-    .map((l) => JSON.parse(l) as RawEvent);
+  const { events, corrupt } = loadRawEventsSafe();
+  if (corrupt.length) {
+    console.warn(
+      `[lifeos/store] skipped ${corrupt.length} unreadable line(s) in raw-events.jsonl ` +
+        `(line ${corrupt.slice(0, 5).join(', ')}${corrupt.length > 5 ? '…' : ''}). ` +
+        'Everything else loaded normally.',
+    );
+  }
+  return events;
 }
 
 export function loadDedupKeys(): Set<string> {

@@ -76,6 +76,12 @@ export function mergeVerdict(a: ObligationDraft, b: ObligationDraft): MergeVerdi
       : undefined;
 
   if (ratio !== undefined && ratio > 0.15) return 'distinct';
+
+  // A match needs at least one anchor to match *on*. Without either a date or
+  // an amount, "same kind and counterparty" describes every unread statement
+  // from an issuer — three months of them collapsed into a single bill.
+  if (dayGap === undefined && ratio === undefined) return 'near';
+
   if ((dayGap === undefined || dayGap <= 1) && (ratio === undefined || ratio <= 0.05)) return 'match';
   if ((dayGap ?? 0) <= 5 || (ratio ?? 0) <= 0.15) return 'near';
   return 'distinct';

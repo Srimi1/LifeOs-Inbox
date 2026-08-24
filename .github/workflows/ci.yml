@@ -1,0 +1,26 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          # Type stripping is on by default from 22.18, which is how the
+          # TypeScript here runs without a build step.
+          node-version: '22.18'
+          cache: npm
+      - run: npm ci
+      - run: npm run typecheck
+      - run: npm test
+
+      # The acceptance eval is deliberately absent. It reads real mail
+      # fixtures and recorded model responses, both of which are gitignored
+      # because they contain personal data — so it runs locally, not here.
+      # Typecheck plus the unit suite catches the regressions that matter.

@@ -113,16 +113,25 @@ export function primaryDueDate(text: string, list: Extraction[], now = new Date(
   const dates = list.filter((e) => e.kind === 'due_date' && e.valueDate);
   if (!dates.length) return undefined;
 
-  const labelled = dates.filter((e) => isLabelledDue(text, e));
+  const today = now.toISOString().slice(0, 10);
+  const asc = (a: Extraction, b: Extraction) => (a.valueDate! < b.valueDate! ? -1 : 1);
+  // An ambiguous DD/MM reading is never promoted to THE due date. The policy
+  // already said such dates need corroboration; the labelled branch simply
+  // never checked, so "due date: 03-04-26" was returned as fact.
+  const confident = (e: Extraction) => e.valueText !== 'ambiguous_dmy';
+
+  const labelled = dates.filter((e) => isLabelledDue(text, e) && confident(e));
   if (labelled.length) {
-    return labelled.sort((a, b) => (a.valueDate! < b.valueDate! ? -1 : 1))[0];
+    // Indian card statements quote the previous cycle's dates alongside this
+    // one's. Taking the earliest labelled date reported a bill as already
+    // overdue while the real deadline was weeks away — so a future date always
+    // wins, and only when every candidate is past do we fall back, to the most
+    // recent of them rather than the oldest.
+    const future = labelled.filter((e) => e.valueDate! >= today).sort(asc);
+    return future[0] ?? labelled.sort(asc).at(-1);
   }
 
-  const today = now.toISOString().slice(0, 10);
-  const future = dates
-    .filter((e) => e.valueText !== 'ambiguous_dmy' && e.valueDate! >= today)
-    .sort((a, b) => (a.valueDate! < b.valueDate! ? -1 : 1));
-  return future[0];
+  return dates.filter((e) => confident(e) && e.valueDate! >= today).sort(asc)[0];
 }
 
 export function daysUntil(isoDate: string, now = new Date()): number {

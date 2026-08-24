@@ -162,6 +162,7 @@ check(
 // invented due dates, so it is asserted rather than assumed.
 const badEvidence = results.flatMap((r) =>
   r.result.extractions
+    .filter((e) => e.provenance !== 'redacted')
     .filter((e) => r.result.signal.text.slice(e.offset, e.offset + e.evidence.length) !== e.evidence)
     .map((e) => `${r.fixture.id}:${e.kind}`),
 );

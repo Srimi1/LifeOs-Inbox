@@ -7,7 +7,17 @@ const V = 'ident@1';
  * Masked card tails as they appear across his issuers:
  *   XXXX 5609 · XXXX-XXXX-XXXX-6268 · xx7895 · ····8842
  */
-const MASKED_TAIL = /((?:[x*·•●]{2,}[\s\-–]*){1,4})(\d{4})\b/gi;
+/**
+ * Every quantifier is bounded and a separator is *required* between mask runs.
+ *
+ * The original nested two unbounded quantifiers — `(?:[x…]{2,}[\s-]*){1,4}` —
+ * which let the engine split one run of x's an exponential number of ways.
+ * Forty characters took over twenty seconds. Requiring a separator between
+ * groups removes the ambiguity entirely: a run can only end where a separator
+ * begins.
+ */
+const MASKED_TAIL =
+  /([x*·•●]{2,20}(?:[\s\-–]{1,3}[x*·•●]{2,20}){0,3})[\s\-–]{0,3}(\d{4})\b/gi;
 const WORDED_TAIL = /\b(?:ending(?:\s+(?:in|with))?|last\s*4(?:\s*digits)?)\D{0,8}(\d{4})\b/gi;
 
 /**

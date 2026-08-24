@@ -61,9 +61,18 @@ export interface ClassifyOptions {
 /** Money and deadlines get a second opinion even when Tier 1 sounds sure. */
 const HIGH_STAKES = /(?:₹|Rs\.?|INR)\s?[\d,]{3,}|due date|last date|suspend|overdue|payment failed/i;
 
-function toExtraction(m: ModelClassification['extractions'][number], shown: string): Extraction {
-  const offset = shown.indexOf(m.evidence);
+function toExtraction(
+  m: ModelClassification['extractions'][number],
+  shown: string,
+  original: string,
+): Extraction {
+  // Prefer an offset into the original text so the UI can highlight the real
+  // span. Evidence quoting a redaction placeholder has no original to point
+  // at, and says so rather than pointing somewhere wrong.
+  const inOriginal = original.indexOf(m.evidence);
+  const offset = inOriginal >= 0 ? inOriginal : Math.max(0, shown.indexOf(m.evidence));
   return {
+    provenance: inOriginal >= 0 ? 'signal' : 'redacted',
     kind: m.kind,
     valueText: m.kind === 'due_date' ? undefined : m.value,
     valueDate: m.kind === 'due_date' ? m.value : undefined,
@@ -264,7 +273,7 @@ export async function classifySignal(sig: Signal, opts: ClassifyOptions = {}): P
         ruleIds: base.classification.ruleIds,
         skipLlm: false,
       },
-      extractions: [...base.extractions, ...m.extractions.map((e) => toExtraction(e, shown))],
+      extractions: [...base.extractions, ...m.extractions.map((e) => toExtraction(e, shown, sig.text))],
     };
   }
 

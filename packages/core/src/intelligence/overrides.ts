@@ -25,6 +25,18 @@ const PROMOTIONS_PATH = join(DATA_DIR, 'promoted-rules.json');
 /** How many identical corrections before a rule is proposed. */
 export const PROMOTION_THRESHOLD = 3;
 
+/**
+ * How long a shape-level override keeps applying to *new* mail.
+ *
+ * An override on the exact message is permanent — that was a decision about a
+ * specific thing. Extending it to every future message of the same shape is a
+ * convenience, and an unbounded one is dangerous: a single misclick on "Your
+ * statement is ready" would stop that card minting bills forever, silently.
+ * Ninety days is long enough to be useful and short enough that a mistake
+ * heals itself.
+ */
+export const SHAPE_OVERRIDE_TTL_DAYS = 90;
+
 export interface Correction {
   /** The matcher this correction keys on — sender address, usually. */
   senderAddr: string;
@@ -43,6 +55,8 @@ export interface Correction {
 export interface PromotedRule {
   id: string;
   senderAddr: string;
+  /** Present when the corrections all shared one subject shape. */
+  subjectShape?: string;
   category: Category;
   urgency?: Urgency;
   action?: Action;
@@ -123,9 +137,17 @@ export function proposeRule(senderAddr: string, corrections = loadCorrections())
 
   if (loadPromotedRules().some((r) => r.senderAddr === senderAddr)) return undefined;
 
+  // Scope the rule to the evidence. Three corrections on one subject shape
+  // say nothing about the sender's other mail — promoting to the whole address
+  // would let three corrections on HDFC's loan offers start archiving its
+  // transaction alerts.
+  const shapes = [...new Set(recent.map((c) => c.subjectShape))];
+  const subjectShapeScope = shapes.length === 1 ? shapes[0] : undefined;
+
   return {
-    id: `promoted.${senderAddr.replace(/[^a-z0-9]+/gi, '-')}`,
+    id: `promoted.${senderAddr.replace(/[^a-z0-9]+/gi, '-')}${subjectShapeScope ? '.shaped' : ''}`,
     senderAddr,
+    subjectShape: subjectShapeScope,
     category: first.category,
     urgency: first.urgency,
     action: first.action,
@@ -153,14 +175,27 @@ export function revokeRule(senderAddr: string): PromotedRule[] {
  * Promoted rules enter the rulepack above the seed rules: an explicit human
  * decision about a specific sender outranks anything shipped in the box.
  */
+/** The shape is already masked; make it safe to compile and tolerant of digits. */
+function escapeForShape(shape: string): string {
+  return shape.replace(/[.*+?^${}()|[\]\\]/g, '\\$&').replace(/#/g, '\\d[\\d,.]*');
+}
+
 export function promotedRulesAsRulepack(rules = loadPromotedRules()): Rule[] {
   return rules
     .filter((r) => r.enabled)
     .map((r) => ({
       id: r.id,
       note: `promoted from ${r.fromCorrections} corrections on ${r.promotedAt.slice(0, 10)}`,
-      priority: 96,
-      when: { fromExact: [r.senderAddr] },
+      // A shape-scoped rule is specific enough to outrank the named senders.
+      // A whole-address one is not, so it sits just below them and can only
+      // win where nothing more specific applies.
+      priority: r.subjectShape ? 96 : 80,
+      when: {
+        fromExact: [r.senderAddr],
+        ...(r.subjectShape
+          ? { subject: new RegExp(escapeForShape(r.subjectShape), 'i') }
+          : {}),
+      },
       then: {
         category: r.category,
         urgency: r.urgency,
@@ -175,11 +210,25 @@ export function promotedRulesAsRulepack(rules = loadPromotedRules()): Rule[] {
  * Exact signal id first, then the sender-and-subject shape so a correction
  * applies to the rest of a repeating series without waiting for promotion.
  */
-export function findOverride(sig: Signal, corrections = loadCorrections()): Correction | undefined {
+export function findOverride(
+  sig: Signal,
+  corrections = loadCorrections(),
+  now = new Date(),
+): Correction | undefined {
+  // A correction on this exact message never expires.
   const exact = corrections.filter((c) => c.signalId === sig.externalId).pop();
   if (exact) return exact;
+
   const shape = subjectShape(sig.title);
-  return corrections.filter((c) => c.senderAddr === sig.senderAddr && c.subjectShape === shape).pop();
+  const cutoff = now.getTime() - SHAPE_OVERRIDE_TTL_DAYS * 86_400_000;
+  return corrections
+    .filter(
+      (c) =>
+        c.senderAddr === sig.senderAddr &&
+        c.subjectShape === shape &&
+        Date.parse(c.correctedAt) >= cutoff,
+    )
+    .pop();
 }
 
 /**

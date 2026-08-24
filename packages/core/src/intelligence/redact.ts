@@ -10,7 +10,7 @@ import { join } from 'node:path';
  * failure rather than a wrong label, so it is deliberately aggressive: it
  * would rather mask a harmless number than leak an identifier. Placeholders
  * are typed, which preserves the model's ability to reason ("your
- * <CARD_****9005> bill of ₹9,463.95 is due") while the sensitive value stays
+ * <CARD_****1234> bill of ₹1,234.00 is due") while the sensitive value stays
  * on this machine.
  *
  * Note on the word PAN: in Indian mail it means both a card Primary Account
@@ -121,6 +121,13 @@ const OTP_CONTEXT = new RegExp(
     'one[\\s-]?time[\\s-]?(?:password|code|pin|use)',
     '\\b(?:verification|security|recovery|login|support|access|confirmation|authentication|auth)\\s+code\\b',
     '\\bpasscode\\b',
+    // Bare codes, which is how most of them actually read. A currency symbol
+    // immediately before the digits rules them out so bill amounts are never
+    // mistaken for credentials.
+    '\\b(?:use|enter)\\s+(?<![₹$])\\d{4,8}\\b',
+    '(?<![₹$\\d.,])\\b\\d{4,8}\\b[^.]{0,40}\\b(?:expires?|do ?n.?t share|never share)\\b',
+    '\\b(?:sign[\\s-]?in|log[\\s-]?in|verify|verification|authenticate)\\b[^.]{0,60}(?<![₹$])\\b\\d{4,8}\\b',
+    '(?<![₹$\\d.,])\\b\\d{4,8}\\b\\s+is your\\b',
   ].join('|'),
   'i',
 );
