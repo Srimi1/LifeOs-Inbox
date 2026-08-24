@@ -1,6 +1,7 @@
 import type { TriageResult } from '../../core/src/triage.ts';
 import type { ObligationDraft, ServiceStatus } from '../../core/src/obligation.ts';
 import { normaliseCounterparty } from '../../core/src/obligation.ts';
+import { datedCandidates } from '../../core/src/radar/windows.ts';
 
 /**
  * Subscriptions, inferred from what actually got charged.
@@ -145,7 +146,7 @@ const EXPIRING = /expired?|expiring|will renew|renews on|cancel(?:led|lation)?/i
  * costing him money while unread: three separate services in a suspended or
  * payment-failed state, none of them opened.
  */
-export function renewalsFromSignals(results: TriageResult[]): ObligationDraft[] {
+export function renewalsFromSignals(results: TriageResult[], now = new Date()): ObligationDraft[] {
   const drafts: ObligationDraft[] = [];
   for (const r of results) {
     if (r.classification.category !== 'renewal') continue;
@@ -159,7 +160,12 @@ export function renewalsFromSignals(results: TriageResult[]): ObligationDraft[] 
 
     const vendor = r.signal.senderDomain.replace(/^(?:mail|email|no-?reply|www)\./, '');
     const amount = r.extractions.find((e) => e.kind === 'amount' && typeof e.valueNum === 'number')?.valueNum;
-    const due = r.extractions.find((e) => e.kind === 'due_date' && e.valueDate)?.valueDate;
+    // Not simply the first date in the message. A Google Play receipt is
+    // headed with the date it was issued and mentions the renewal date in the
+    // body; taking the first one reported a subscription as 22 days overdue
+    // when it actually renews next month.
+    const due = datedCandidates(r.signal, now).find((c) => c.explicit)?.date
+      ?? datedCandidates(r.signal, now)[0]?.date;
 
     drafts.push({
       kind: 'renewal',

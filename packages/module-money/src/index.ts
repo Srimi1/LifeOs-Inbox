@@ -82,7 +82,7 @@ export function buildMoneyView(results: TriageResult[], opts: MoneyOptions = {})
   const inferred = inferRecurring(chargesFrom(results), now);
   const extraDrafts = [
     ...inferred.map((i) => ({ draft: inferenceToDraft(i) })),
-    ...renewalsFromSignals(results).map((d) => ({ draft: d })),
+    ...renewalsFromSignals(results, now).map((d) => ({ draft: d })),
   ];
 
   const entries = buildLedger(results, { now, overlay, extraDrafts });

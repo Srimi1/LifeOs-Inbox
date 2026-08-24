@@ -143,11 +143,13 @@ npm run demo:correction                     # watch the loop end to end
 | Redaction, model tiers, corrections, rule promotion, audit | `packages/core/src/intelligence/` |
 | Money Ledger: obligations, canary, renewal inference, cards | `packages/module-money/` |
 | Follow-Up Desk: open loops, silence timers, dead channels | `packages/module-followup/` |
+| Deadline Radar: window extraction, one timeline, countdowns | `packages/core/src/radar/` |
+| Trust metrics: Tier-0 rate, urgent recall, correction rate | `packages/core/src/metrics.ts` |
 | Acceptance eval on 126 real messages | `eval/run.ts` |
 
 ```bash
-npm run eval        # 22 acceptance checks against your real mail
-npm test            # 20 unit tests (redaction, corrections)
+npm run eval        # 44 acceptance checks against your real mail
+npm test            # 67 unit tests
 npm run typecheck
 
 npm run auth        # after step 1
@@ -156,6 +158,9 @@ npm run triage      # what the pipeline makes of it
 npm run brief:dry   # the morning brief, printed
 npm run money       # every bill and renewal owed, worst first
 npm run loops       # open loops, dead channels, who owes whom
+npm run radar       # every dated commitment on one timeline
+npm run metrics     # can this be trusted yet — with the thresholds
+npm run quarantine  # anything a parser matched but could not read
 npm run demo:canary # drop the bill source and watch the canary fire
 npm run poll        # every 5 minutes
 ```

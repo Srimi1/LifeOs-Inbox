@@ -19,6 +19,7 @@ import { renderText, renderHtml, renderSubject } from '../packages/core/src/brie
 import { readState } from '../packages/core/src/store.ts';
 import { buildFollowUpView, briefSection } from '../packages/module-followup/src/index.ts';
 import { buildMoneyView } from '../packages/module-money/src/index.ts';
+import { buildRadar } from '../packages/core/src/radar/index.ts';
 import { loadOwner } from '../packages/core/src/ownership.ts';
 
 const here = dirname(fileURLToPath(import.meta.url));
@@ -46,11 +47,29 @@ const state = readState();
 // The Follow-Up Desk supplies its own section; core never imports the module.
 const desk = briefSection(buildFollowUpView(results, { now, cap: 5 }));
 const ledger = buildMoneyView(results, { now, ownedCardLast4: loadOwner().cardLast4 });
+const radarItems = buildRadar(results, {
+  horizonDays: 21,
+  obligations: ledger.entries.map((e) => ({
+    id: e.id, label: e.label, kind: e.kind, dueDate: e.dueDate,
+    amount: e.amount, currency: e.currency, signalId: e.evidence[0],
+  })),
+  claimedSignalIds: ledger.entries.flatMap((e) => e.evidence),
+});
 
 const facts = buildBriefFacts(results, {
   now,
   waitingOn: desk.waitingOn,
   deadChannels: desk.deadChannels,
+  deadlines: radarItems
+      .filter((i) => i.source !== 'ledger')
+      .map((i) => ({
+        title: i.title,
+        date: i.date,
+        daysUntil: i.daysUntil,
+        source: i.source,
+        evidence: i.evidence,
+        signalId: i.signalId ?? '',
+      })),
   bills: ledger.bills
     .filter((b) => b.dueDate && b.status !== 'paid')
     .map((b) => ({

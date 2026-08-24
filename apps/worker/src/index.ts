@@ -36,6 +36,8 @@ import {
 } from '../../../packages/core/src/intelligence/overrides.ts';
 import { CATEGORIES, URGENCIES, ACTIONS } from '../../../packages/core/src/taxonomy.ts';
 import { loadOwner } from '../../../packages/core/src/ownership.ts';
+import { buildRadar, bucketRadar, countdown, radarLabel } from '../../../packages/core/src/radar/index.ts';
+import { computeMetrics, renderMetrics } from '../../../packages/core/src/metrics.ts';
 import { buildMoneyView, markPaid, decide, whichCard, loadOverlay } from '../../../packages/module-money/src/index.ts';
 import {
   buildFollowUpView,
@@ -224,11 +226,29 @@ async function cmdBrief(dry: boolean): Promise<void> {
   // The Follow-Up Desk supplies its own brief section; core never imports it.
   const desk = briefSection(buildFollowUpView(results, { overlay: loadThreadOverlay(), cap: 5 }));
   const ledger = buildMoneyView(results, { overlay: loadOverlay(), ownedCardLast4: loadOwner().cardLast4 });
+  const radarItems = buildRadar(results, {
+    horizonDays: 21,
+    obligations: ledger.entries.map((e) => ({
+      id: e.id, label: e.label, kind: e.kind, dueDate: e.dueDate,
+      amount: e.amount, currency: e.currency, signalId: e.evidence[0],
+    })),
+    claimedSignalIds: ledger.entries.flatMap((e) => e.evidence),
+  });
   const facts = buildBriefFacts(results, {
     state,
     waitingOn: desk.waitingOn,
     deadChannels: desk.deadChannels,
-    bills: ledger.bills
+    deadlines: radarItems
+      .filter((i) => i.source !== 'ledger')
+      .map((i) => ({
+        title: i.title,
+        date: i.date,
+        daysUntil: i.daysUntil,
+        source: i.source,
+        evidence: i.evidence,
+        signalId: i.signalId ?? '',
+      })),
+  bills: ledger.bills
       .filter((b) => b.dueDate && b.status !== 'paid')
       .map((b) => ({
         label: b.label,
@@ -368,6 +388,73 @@ function cmdRules(): void {
 }
 
 
+/** Everything with a date on it, from every source, on one timeline. */
+function cmdRadar(): void {
+  const events = loadRawEvents();
+  if (!events.length) return log('nothing stored yet — run backfill first');
+
+  const results = events.map((e) => triage(normalizeEmail(e.payload)));
+  const ledger = buildMoneyView(results, { overlay: loadOverlay(), ownedCardLast4: loadOwner().cardLast4 });
+  const radarItems = buildRadar(results, {
+    horizonDays: 21,
+    obligations: ledger.entries.map((e) => ({
+      id: e.id, label: e.label, kind: e.kind, dueDate: e.dueDate,
+      amount: e.amount, currency: e.currency, signalId: e.evidence[0],
+    })),
+    claimedSignalIds: ledger.entries.flatMap((e) => e.evidence),
+  });
+  const radar = buildRadar(results, {
+    horizonDays: 30,
+    obligations: ledger.entries.map((e) => ({
+      id: e.id, label: e.label, kind: e.kind, dueDate: e.dueDate,
+      amount: e.amount, currency: e.currency, signalId: e.evidence[0],
+    })),
+    claimedSignalIds: ledger.entries.flatMap((e) => e.evidence),
+  });
+
+  const b = bucketRadar(radar);
+  const now = new Date();
+  console.log('');
+  for (const [title, items] of [
+    ['OVERDUE', b.overdue], ['TODAY', b.today], ['THIS WEEK', b.thisWeek], ['LATER', b.later],
+  ] as const) {
+    if (!items.length) continue;
+    console.log(`  ${title}`);
+    for (const i of items) {
+      const amt = typeof i.amount === 'number' ? `  ${inr.format(i.amount)}` : '';
+      console.log(`    ${countdown(i.daysUntil, now, i.date).padStart(11)}  ${radarLabel(i).slice(0, 58)}${amt}`);
+      if (i.opensAt) console.log(`                 window opened ${i.opensAt}`);
+    }
+    console.log('');
+  }
+  if (!radar.length) console.log('  nothing dated in the next 30 days\n');
+}
+
+/** Can this be trusted yet? The thresholds answer, not a vibe. */
+function cmdMetrics(): void {
+  const events = loadRawEvents();
+  if (!events.length) return log('nothing stored yet — run backfill first');
+  const results = events.map((e) => triage(normalizeEmail(e.payload)));
+  console.log('');
+  console.log(renderMetrics(computeMetrics(results, { state: readState() })));
+  console.log('');
+}
+
+/** Messages a parser matched but could not read. Never silently dropped. */
+function cmdQuarantine(): void {
+  const events = loadRawEvents();
+  const results = events.map((e) => triage(normalizeEmail(e.payload)));
+  const stuck = results.filter((r) => r.quarantine);
+  console.log('');
+  if (!stuck.length) console.log('  nothing quarantined — every matched parser could read its body');
+  for (const r of stuck) {
+    console.log(`  ${r.signal.externalId}  ${r.signal.senderAddr}`);
+    console.log(`    ${r.signal.title.slice(0, 68)}`);
+    console.log(`    ${r.quarantine}`);
+  }
+  console.log('');
+}
+
 /** Open loops, worst first, with the dead channels called out on top. */
 function cmdLoops(): void {
   const events = loadRawEvents();
@@ -467,6 +554,9 @@ try {
   else if (cmd === 'rules') cmdRules();
   else if (cmd === 'money') cmdMoney();
   else if (cmd === 'loops') cmdLoops();
+  else if (cmd === 'radar') cmdRadar();
+  else if (cmd === 'metrics') cmdMetrics();
+  else if (cmd === 'quarantine') cmdQuarantine();
   else if (cmd === 'close') {
     const key = process.argv[3];
     if (!key) log('usage: close <threadKey>   (keys are shown by `npm run loops`)');
@@ -525,7 +615,8 @@ try {
       'usage: auth | backfill | poll | triage | brief [--dry] | review |\n' +
       '       correct <id> <category> [urgency] [action] | rules | accept <sender> | revoke <sender> |\n' +
       '       money | paid <id> | keep <who> | cancel <who> | card <category> |\n' +
-      '       loops | close <thread> | track <thread> | snooze <thread> <date> | status',
+      '       loops | close <thread> | track <thread> | snooze <thread> <date> |\n' +
+      '       radar | metrics | quarantine | status',
     );
     process.exitCode = 1;
   }

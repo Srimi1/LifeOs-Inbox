@@ -130,6 +130,12 @@ export interface BriefOptions {
    * more than double. Merging is the ledger's job; the brief just renders it.
    */
   bills?: BillView[];
+  /**
+   * Supplied by Deadline Radar. Core's own derivation takes the first future
+   * date in a message, which reads an e-voting window as opening rather than
+   * closing and a receipt's own date as a renewal.
+   */
+  deadlines?: DeadlineView[];
 }
 
 /** Their dates record what happened, not what is owed. */
@@ -229,6 +235,9 @@ export function buildBriefFacts(results: TriageResult[], opts: BriefOptions = {}
     });
   }
   deadlines.sort((a, b) => a.daysUntil - b.daysUntil);
+  const effectiveDeadlines = opts.deadlines
+    ? [...opts.deadlines].sort((a, b) => a.daysUntil - b.daysUntil)
+    : deadlines;
 
   // ------------------------------------------------------------------ loops
   // Group by thread so a five-message escalation is one entry, not five.
@@ -404,7 +413,7 @@ export function buildBriefFacts(results: TriageResult[], opts: BriefOptions = {}
     billTotal,
     billWindowDays: windowDays,
     renewalRisks,
-    deadlines,
+    deadlines: effectiveDeadlines,
     loops,
     deadChannels,
     streaks,

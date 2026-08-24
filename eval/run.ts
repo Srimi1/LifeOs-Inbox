@@ -30,6 +30,8 @@ import { cassetteCount, resolveMode } from '../packages/core/src/intelligence/cl
 import { buildMoneyView } from '../packages/module-money/src/index.ts';
 import { loadOwner } from '../packages/core/src/ownership.ts';
 import { buildFollowUpView, briefSection } from '../packages/module-followup/src/index.ts';
+import { buildRadar, bucketRadar, countdown } from '../packages/core/src/radar/index.ts';
+import { computeMetrics } from '../packages/core/src/metrics.ts';
 
 const here = dirname(fileURLToPath(import.meta.url));
 
@@ -543,9 +545,105 @@ check(
   `${deskBrief.loops.length} loops · dead bounce count ${deskBrief.deadChannels[0]?.bounceCount ?? 0}`,
 );
 
+
+// ========================== week 6: deadline radar ==========================
+const radar = buildRadar(results.map((r) => r.result), {
+  now: briefNow,
+  horizonDays: 30,
+  obligations: evalLedger.entries.map((e) => ({
+    id: e.id, label: e.label, kind: e.kind, dueDate: e.dueDate,
+    amount: e.amount, currency: e.currency, signalId: e.evidence[0],
+  })),
+  claimedSignalIds: evalLedger.entries.flatMap((e) => e.evidence),
+});
+
+// The window's closing edge is the deadline. Taking the first date in that
+// notice gives 25 Aug — when voting opens, the least useful of its three dates.
+const vote = radar.find((i) => i.kind === 'vote');
+check(
+  'An e-voting window lands on its closing date, not its opening',
+  Boolean(vote) && vote!.date === '2026-08-27' && vote!.opensAt === '2026-08-25',
+  vote ? `closes ${vote.date}, opened ${vote.opensAt}` : 'no voting deadline found',
+);
+
+check(
+  'Bills and extracted deadlines share one timeline, worst first',
+  radar.length >= 6 &&
+    radar.every((i, n, arr) => n === 0 || arr[n - 1].daysUntil <= i.daysUntil) &&
+    radar.some((i) => i.source === 'ledger') &&
+    radar.some((i) => i.source !== 'ledger'),
+  radar.slice(0, 4).map((i) => `${i.kind}:${i.daysUntil}d`).join(' · '),
+);
+
+// One commitment is one row, whichever way it reached the radar.
+const dupes = radar.filter(
+  (i, n, arr) => arr.findIndex((j) => j.date === i.date && j.title === i.title) !== n,
+);
+check(
+  'No commitment appears twice on the radar',
+  dupes.length === 0,
+  dupes.length ? `DUPLICATED: ${dupes.map((d) => d.title.slice(0, 24)).join(', ')}` : `${radar.length} distinct rows`,
+);
+
+// A receipt's own date is not a renewal date.
+const renewalRow = radar.find((i) => i.kind === 'decide' && /google/i.test(i.title));
+check(
+  'A subscription renews on its renewal date, not its receipt date',
+  Boolean(renewalRow) && renewalRow!.daysUntil > 0,
+  renewalRow ? `${renewalRow.title} · ${renewalRow.date} (${renewalRow.daysUntil}d)` : 'no google renewal',
+);
+
+const buckets = bucketRadar(radar);
+check(
+  'Overdue money leads the radar',
+  buckets.overdue.length >= 3 && buckets.overdue.every((i) => i.kind === 'pay'),
+  `${buckets.overdue.length} overdue · ${buckets.today.length} today · ${buckets.thisWeek.length} this week · ${buckets.later.length} later`,
+);
+
+check(
+  'Countdown switches to hours inside three days',
+  /^\d+h left$/.test(countdown(1, briefNow, '2026-08-25')) && countdown(9) === '9d',
+  `${countdown(1, briefNow, '2026-08-25')} · ${countdown(9)}`,
+);
+
+// ---------------------------------------------------------- trust metrics
+const gold = fixtures
+  .filter((f) => f.expect)
+  .map((f) => ({ id: f.id, category: f.expect!.category, urgency: f.expect!.urgency }));
+const metrics = computeMetrics(results.map((r) => r.result), {
+  gold,
+  now: briefNow,
+  state: { lastSyncAt: briefNow.toISOString(), lastSyncOk: true },
+});
+
+// The product-killing error, tracked on its own. A false urgent costs a
+// glance; a missed urgent is how a triage product dies.
+check(
+  'Urgent recall is 100% on the labelled set',
+  Boolean(metrics.urgentRecall) && metrics.urgentRecall!.rate === 1,
+  metrics.urgentRecall
+    ? `${metrics.urgentRecall.caught}/${metrics.urgentRecall.gold}` +
+      (metrics.urgentRecall.missed.length ? ` — MISSED ${metrics.urgentRecall.missed.join(', ')}` : '')
+    : 'no urgency labels',
+);
+
+check(
+  'Nothing is silently dropped by a parser',
+  metrics.quarantined.count === 0,
+  metrics.quarantined.count === 0
+    ? 'no quarantined messages'
+    : `${metrics.quarantined.count}: ${metrics.quarantined.reasons.join('; ')}`,
+);
+
+check(
+  'The correction-rate verdict is stated honestly',
+  metrics.corrections.verdict.length > 0,
+  `${(metrics.corrections.rate * 100).toFixed(1)}% — ${metrics.corrections.verdict}`,
+);
+
 // ------------------------------------------------------------------ report
 console.log('');
-console.log(C.bold('  LifeOS Inbox — acceptance') + C.dim(`   weeks 1-5 · ${RULEPACK_VERSION}`));
+console.log(C.bold('  LifeOS Inbox — acceptance') + C.dim(`   weeks 1-6 · ${RULEPACK_VERSION}`));
 console.log(C.dim(`  ${results.length} messages · ${fixturePath.split('/').pop()} · captured ${raw.capturedAt ?? 'n/a'}`));
 console.log('');
 

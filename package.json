@@ -35,7 +35,11 @@
     "close": "node --env-file-if-exists=.env apps/worker/src/index.ts close",
     "track": "node --env-file-if-exists=.env apps/worker/src/index.ts track",
     "snooze": "node --env-file-if-exists=.env apps/worker/src/index.ts snooze",
-    "demo:followup": "node eval/followup.ts"
+    "demo:followup": "node eval/followup.ts",
+    "radar": "node --env-file-if-exists=.env apps/worker/src/index.ts radar",
+    "metrics": "node --env-file-if-exists=.env apps/worker/src/index.ts metrics",
+    "quarantine": "node --env-file-if-exists=.env apps/worker/src/index.ts quarantine",
+    "demo:radar": "node eval/radar.ts"
   },
   "license": "MIT",
   "workspaces": [
