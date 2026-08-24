@@ -149,6 +149,9 @@ npm run demo:correction                     # watch the loop end to end
 
 ```bash
 npm run eval        # 44 acceptance checks against your real mail
+                    # NOTE: its 97.9% Tier-0 figure is measured on hand-picked
+                    # fixtures. On unbiased mail it is 72% — see
+                    # docs/measured-accuracy.md before quoting either.
 npm test            # 67 unit tests
 npm run typecheck
 
