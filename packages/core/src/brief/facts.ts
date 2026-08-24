@@ -346,6 +346,21 @@ export function buildBriefFacts(results: TriageResult[], opts: BriefOptions = {}
   // ---------------------------------------------------------------- act now
   const actNow: ActNowItem[] = [];
 
+  // A parser that matched a money sender and then read nothing is how the
+  // largest bill in the mailbox disappeared on the day it was due. Silence
+  // from a financial sender is an alarm, never a footnote.
+  for (const r of results) {
+    if (!r.quarantine) continue;
+    if (!['bill', 'transaction', 'renewal', 'investment'].includes(r.classification.category)) continue;
+    actNow.push({
+      kind: 'urgent_signal',
+      title: `Could not read a money email from ${r.signal.senderDomain}`,
+      detail: `${r.quarantine} — open it yourself; an amount may be hiding in here.`,
+      signalId: r.signal.externalId,
+      severity: 0,
+    });
+  }
+
   for (const d of deadChannels) {
     actNow.push({
       kind: 'dead_channel',
