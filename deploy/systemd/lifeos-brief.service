@@ -1,0 +1,12 @@
+[Unit]
+Description=LifeOS Inbox — morning brief (one-shot)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+User=lifeos
+Group=lifeos
+WorkingDirectory=/opt/lifeos-inbox
+Environment=LIFEOS_HOME=/opt/lifeos-inbox
+ExecStart=/usr/bin/node --env-file-if-exists=.env apps/worker/src/index.ts brief

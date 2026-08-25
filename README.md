@@ -135,8 +135,8 @@ machine. See `*.example.json` for the shapes.
 
 ## Using it from an agent
 
-The capability surface is exposed to a [Hermes](https://github.com/Srimi1/LifeOs-Inbox) agent
-as a skill. `integrations/hermes/SKILL.md` teaches the agent when to reach for
+The capability surface is exposed to a **Hermes** agent — a local, skill-loading
+agent — as a skill. `integrations/hermes/SKILL.md` teaches the agent when to reach for
 LifeOS, which commands answer which question, and — importantly — how to report
 the result honestly: quote its figures exactly, never claim a bill is paid
 (LifeOS sees mail, not bank accounts), and always surface the canary alongside a

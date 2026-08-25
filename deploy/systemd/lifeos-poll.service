@@ -1,0 +1,20 @@
+[Unit]
+Description=LifeOS Inbox — incremental Gmail sync (5-min loop)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=lifeos
+Group=lifeos
+WorkingDirectory=/opt/lifeos-inbox
+Environment=LIFEOS_HOME=/opt/lifeos-inbox
+ExecStart=/usr/bin/node --env-file-if-exists=.env apps/worker/src/index.ts poll
+Restart=on-failure
+RestartSec=30
+NoNewPrivileges=true
+ProtectSystem=full
+ReadWritePaths=/opt/lifeos-inbox
+
+[Install]
+WantedBy=multi-user.target

@@ -1,0 +1,37 @@
+# LifeOS Inbox — sidecar for the Hostinger Hermes Docker app.
+#
+# This is NOT a standalone compose file. It is a merge fragment for the existing
+# `hermes-agent-ohnv` compose (hPanel → Docker Manager → Manage → .yaml editor).
+#
+# Apply TWO edits to that compose:
+#
+#   1. Under the existing `hermes-agent:` service, ADD one volume line so the
+#      agent can read the skill + its refreshed output:
+#
+#        volumes:
+#          - ./data:/opt/data
+#          - ./data/skills/ai-trader:/opt/hermes/skills/ai-trader
+#          - ./data/skills/ai-trader/ai-trader:/usr/local/bin/ai-trader
+#          - ./data/skills/lifeos-inbox:/opt/hermes/skills/lifeos-inbox   # <-- ADD THIS
+#
+#   2. Under `services:`, ADD the whole `lifeos-inbox:` service below.
+#
+# Host paths are relative to the compose project dir /docker/hermes-agent-ohnv/,
+# so ./data => /docker/hermes-agent-ohnv/data (same base the ai-trader skill uses).
+
+services:
+  lifeos-inbox:
+    image: node:22-bookworm-slim          # tracks latest 22.x (>= 22.18 required for native TS)
+    restart: unless-stopped
+    working_dir: /opt/lifeos-inbox
+    entrypoint: ["bash", "/opt/lifeos-inbox/deploy/vps/lifeos-entrypoint.sh"]
+    # No ports, no traefik labels: this service is internal-only and serves no HTTP.
+    volumes:
+      # The LifeOS checkout on the host. Holds the code AND the secrets/state that
+      # never enter git: .env, .tokens.json, owner.json, cards.json, data/, node_modules/.
+      - ./data/lifeos/app:/opt/lifeos-inbox
+      # Shared with hermes-agent: the sidecar writes refreshed surfaces into out/,
+      # the agent reads them from /opt/hermes/skills/lifeos-inbox/out/.
+      - ./data/skills/lifeos-inbox/out:/out
+    # TZ is not needed: the 07:00 brief is scheduled at 01:30 UTC (IST has no DST).
+    # Egress only (Gmail API, optional Resend). No inbound. Model tier stays off.

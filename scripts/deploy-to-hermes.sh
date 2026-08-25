@@ -96,8 +96,8 @@ cat <<'NEXT'
   3. Run `npm run auth` ON A MACHINE WITH A BROWSER. The OAuth consent flow
      listens on localhost:8787, so it cannot complete on a headless VPS.
      Afterwards copy .tokens.json to the VPS over scp — never into git.
-  4. Then on the VPS: `npm run backfill`, and `npm run poll` under a process
-     manager (systemd or pm2) so sync keeps running.
+  4. Then on the VPS: `npm run backfill`, and turn on always-on sync + the 07:00
+     brief with the systemd units in `deploy/systemd/` (see `deploy/README.md`).
 
   Until step 3 is done every LifeOS command returns empty, and that emptiness
   means "not connected", not "nothing to do".
